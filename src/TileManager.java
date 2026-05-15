@@ -50,7 +50,7 @@ public class TileManager {
             }
             
         } catch (Exception e) {
-            System.out.println("CẢNH BÁO: Chưa tìm thấy file ảnh bản đồ!");
+            System.out.println("WARNING: Map image file not found!");
             e.printStackTrace();
         }
     }
@@ -67,7 +67,7 @@ public class TileManager {
             // LỚP BẢO VỆ: Nếu bạn chưa kịp tạo level2.txt, level3.txt...
             // Nó sẽ tự động load lại level1.txt để game không bị Crash.
             if (is == null) {
-                System.out.println("CẢNH BÁO: Chưa làm map cho level " + level + " -> Dùng tạm map 1!");
+                System.out.println("WARNING: Map for level " + level + " not found -> using level 1!");
                 is = getClass().getResourceAsStream("/res/maps/level1.txt"); 
             }
 

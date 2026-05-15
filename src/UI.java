@@ -9,9 +9,16 @@ public class UI {
     
     GamePanel gp;
     
-    // Khai báo Font chữ để dùng chung
-    Font arial_30;
-    Font arial_60B;
+    // Shared UI fonts. Keep one typeface across UI screens.
+    Font uiFont20;
+    Font uiFont22;
+    Font uiFont24;
+    Font uiFont28;
+    Font uiFont30;
+    Font uiFont40;
+    Font uiFont45;
+    Font uiFont50;
+    Font uiFont60;
     
     // Biến cho màn hình Menu
     public BufferedImage titleBg;
@@ -22,8 +29,15 @@ public class UI {
     public UI(GamePanel gp) {
         this.gp = gp;
         
-        arial_30 = new Font("Arial", Font.BOLD, 30);
-        arial_60B = new Font("Arial", Font.BOLD, 60);
+        uiFont20 = new Font("Arial", Font.BOLD, 20);
+        uiFont22 = new Font("Arial", Font.BOLD, 22);
+        uiFont24 = new Font("Arial", Font.BOLD, 24);
+        uiFont28 = new Font("Arial", Font.BOLD, 28);
+        uiFont30 = new Font("Arial", Font.BOLD, 30);
+        uiFont40 = new Font("Arial", Font.BOLD, 40);
+        uiFont45 = new Font("Arial", Font.BOLD, 45);
+        uiFont50 = new Font("Arial", Font.BOLD, 50);
+        uiFont60 = new Font("Arial", Font.BOLD, 60);
 
         // Tải ảnh nền menu nếu có. Nếu thiếu file, game vẫn chạy với nền đen dự phòng.
         try {
@@ -46,13 +60,13 @@ public class UI {
         if (gp.gameState == gp.playState || gp.gameState == gp.pauseState) {
             
             // Vẽ chữ Màn chơi
-            g2.setFont(new Font("Arial", Font.BOLD, 20));
+            g2.setFont(uiFont20);
             g2.setColor(Color.WHITE);
-            g2.drawString("MÀN CHƠI: " + gp.currentLevel, 20, 30);
+            g2.drawString("LEVEL: " + gp.currentLevel, 20, 30);
             
             // Vẽ điểm số
-            g2.drawString("ĐIỂM: " + gp.score, 520, 30);
-            g2.drawString("KỶ LỤC: " + gp.bestScore, 520, 60);
+            g2.drawString("SCORE: " + gp.score, 520, 30);
+            g2.drawString("BEST: " + gp.bestScore, 520, 60);
             
             // Vẽ chữ HP
             g2.drawString("HP: ", 20, 65);
@@ -87,7 +101,7 @@ public class UI {
             if (gp.player.skillCooldown == 0) {
                 g2.setColor(Color.CYAN);
                 g2.fillRect(220, 85, 100, 15);
-                g2.drawString("SẴN SÀNG!", 330, 100);
+                g2.drawString("READY!", 330, 100);
             } else {
                 g2.setColor(Color.ORANGE);
                 double cdScale = 100.0 / gp.player.skillMaxCooldown;
@@ -104,9 +118,9 @@ public class UI {
                 if (m.type == 3) { // Nếu tìm thấy Trùm Cuối
                     
                     // 1. Vẽ Tên Boss
-                    g2.setFont(new Font("Arial", Font.BOLD, 24));
+                    g2.setFont(uiFont24);
                     g2.setColor(Color.WHITE);
-                    String bossName = "Anh Độ Mixi";
+                    String bossName = "Dungeon Overlord";
                     int textLen = (int) g2.getFontMetrics().getStringBounds(bossName, g2).getWidth();
                     int textX = gp.screenWidth / 2 - textLen / 2;
                     int textY = gp.screenHeight - 75; // Nằm sát dưới đáy màn hình
@@ -145,8 +159,8 @@ public class UI {
                 
                 // Hiển thị tối đa trong 3 giây (180 khung hình ở 60FPS)
                 if (levelClearCounter < 180) { 
-                    g2.setFont(new Font("Arial", Font.ITALIC, 28)); // Nhỏ nhắn, in nghiêng
-                    String text = "Qua màn";
+                    g2.setFont(uiFont28);
+                    String text = "Level Clear";
                     int textLen = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
                     int textX = gp.screenWidth / 2 - textLen / 2;
                     int textY = gp.screenHeight / 2 - 50; 
@@ -185,9 +199,6 @@ public class UI {
         else if (gp.gameState == gp.upgradeState) {
             drawUpgradeScreen(g2);
         }
-        else if (gp.gameState == gp.pauseState) {
-            drawPauseScreen(g2); // Lớp phủ Tạm dừng sẽ đè mờ lên cả HUD
-        }
         // Nếu bạn có các màn hình Thắng/Thua thì gọi luôn ở đây:
         // else if (gp.gameState == gp.gameOverState) drawGameOverScreen(g2);
         // else if (gp.gameState == gp.gameWinState) drawGameWinScreen(g2);
@@ -203,7 +214,7 @@ public class UI {
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
 
         // ĐÃ FIX: Khai báo Font trực tiếp với cỡ 60
-        g2.setFont(new Font("Arial", Font.BOLD, 60));
+        g2.setFont(uiFont60);
         g2.setColor(Color.RED);
         String text = "GAME OVER";
         int length = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
@@ -219,18 +230,18 @@ public class UI {
         g2.drawString(text, x, y);
 
         // ĐÃ FIX: Khai báo Font trực tiếp với cỡ 30
-        g2.setFont(new Font("Arial", Font.BOLD, 30));
+        g2.setFont(uiFont30);
         g2.setColor(Color.WHITE);
-        text = "NHẤN R ĐỂ CHƠI LẠI";
+        text = "PRESS R TO RESTART";
         length = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
         x = gp.screenWidth / 2 - length / 2;
         y = gp.screenHeight / 2 + 100;
         
         g2.drawString(text, x, y);
 
-        g2.setFont(new Font("Arial", Font.BOLD, 24));
+        g2.setFont(uiFont24);
         g2.setColor(Color.YELLOW);
-        text = "ĐIỂM: " + gp.score + "   |   KỶ LỤC: " + gp.bestScore;
+        text = "SCORE: " + gp.score + "   |   BEST: " + gp.bestScore;
         length = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
         x = gp.screenWidth / 2 - length / 2;
         y = gp.screenHeight / 2 + 150;
@@ -245,8 +256,8 @@ public class UI {
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
 
         // Vẽ dòng chữ CHÚC MỪNG CHIẾN THẮNG
-        g2.setFont(g2.getFont().deriveFont(Font.BOLD, 45F));
-        String text = "CHÚC MỪNG CHIẾN THẮNG!";
+        g2.setFont(uiFont45);
+        String text = "VICTORY!";
         int length = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
         int x = gp.screenWidth / 2 - length / 2;
         int y = gp.screenHeight / 2 - 50; // Đẩy lên cao một chút
@@ -260,18 +271,18 @@ public class UI {
         g2.drawString(text, x, y);
 
         // Vẽ dòng chữ hướng dẫn
-        g2.setFont(arial_30);
+        g2.setFont(uiFont30);
         g2.setColor(Color.WHITE);
-        text = "NHẤN ENTER ĐỂ VỀ MENU";
+        text = "PRESS ENTER FOR MAIN MENU";
         length = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
         x = gp.screenWidth / 2 - length / 2;
         y = gp.screenHeight / 2 + 50;
         
         g2.drawString(text, x, y);
 
-        g2.setFont(new Font("Arial", Font.BOLD, 24));
+        g2.setFont(uiFont24);
         g2.setColor(Color.YELLOW);
-        text = "ĐIỂM CUỐI: " + gp.score + "   |   KỶ LỤC: " + gp.bestScore;
+        text = "FINAL SCORE: " + gp.score + "   |   BEST: " + gp.bestScore;
         length = (int) g2.getFontMetrics().getStringBounds(text, g2).getWidth();
         x = gp.screenWidth / 2 - length / 2;
         y = gp.screenHeight / 2 + 100;
@@ -287,14 +298,14 @@ public class UI {
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
         
         // Vẽ Tiêu đề
-        g2.setFont(new Font("Arial", Font.BOLD, 40));
+        g2.setFont(uiFont40);
         g2.setColor(Color.YELLOW);
-        String title = "PHẦN THƯỞNG NÂNG CẤP (PHÍM 1, 2, 3)";
+        String title = "CHOOSE AN UPGRADE (1, 2, 3)";
         int titleX = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(title, g2).getWidth()/2;
         g2.drawString(title, titleX, 100);
 
         // Vẽ 3 Hộp lựa chọn
-        g2.setFont(new Font("Arial", Font.BOLD, 22));
+        g2.setFont(uiFont22);
         
         for (int i = 0; i < 3; i++) {
             int boxWidth = 500;
@@ -311,23 +322,23 @@ public class UI {
             g2.drawRect(boxX, boxY, boxWidth, boxHeight);
             
             // Lấy Tên Nâng cấp dựa trên ID
-            String text = "PHÍM " + (i+1) + ": ";
+            String text = "KEY " + (i+1) + ": ";
             int buffID = gp.availableUpgrades[i];
             
-            if (buffID == 1) { text += "Trái Tim Thép (+2 Máu Tối Đa)"; g2.setColor(Color.GREEN); }
-            else if (buffID == 2) { text += "Giày Hermes (+1 Tốc Độ Chạy)"; g2.setColor(Color.CYAN); }
-            else if (buffID == 3) { text += "Thiền Định (-2s Hồi Chiêu Cuối)"; g2.setColor(Color.MAGENTA); }
-            else if (buffID == 4) { text += "Đạn Xuyên Giáp (+1 Sát Thương Súng)"; g2.setColor(Color.ORANGE); }
-            else if (buffID == 5) { text += "Cò Súng Nhạy (Tăng Tốc Độ Bắn)"; g2.setColor(Color.YELLOW); }
-            else if (buffID == 6) { text += "Lưỡi Kiếm Huyết (+2 Sát Thương Chém)"; g2.setColor(Color.RED); }
-            else if (buffID == 7) { text += "Cổ Tay Linh Hoạt (Tăng Tốc Độ Chém)"; g2.setColor(Color.ORANGE); }
+            if (buffID == 1) { text += "Iron Heart (+2 Max HP)"; g2.setColor(Color.GREEN); }
+            else if (buffID == 2) { text += "Hermes Boots (+1 Move Speed)"; g2.setColor(Color.CYAN); }
+            else if (buffID == 3) { text += "Meditation (-2s Ultimate Cooldown)"; g2.setColor(Color.MAGENTA); }
+            else if (buffID == 4) { text += "Armor-Piercing Shot (+1 Gun Damage)"; g2.setColor(Color.ORANGE); }
+            else if (buffID == 5) { text += "Quick Trigger (Faster Shooting)"; g2.setColor(Color.YELLOW); }
+            else if (buffID == 6) { text += "Blood Blade (+2 Melee Damage)"; g2.setColor(Color.RED); }
+            else if (buffID == 7) { text += "Swift Wrist (Faster Slashes)"; g2.setColor(Color.ORANGE); }
             // THÊM TÊN 6 BUFF MỚI:
-            else if (buffID == 8) { text += "Lọ Thuốc Thần (Hồi 50% Máu)"; g2.setColor(Color.PINK); }
-            else if (buffID == 9) { text += "Bước Chân Gió (+2 Tốc Độ)"; g2.setColor(Color.CYAN); }
-            else if (buffID == 10) { text += "Súng Nòng Đôi (Bắn 2 Viên Tỏa Mở)"; g2.setColor(Color.WHITE); }
-            else if (buffID == 11) { text += "Bão Đạn (Chiêu Cuối 36 Viên)"; g2.setColor(Color.YELLOW); }
-            else if (buffID == 12) { text += "Gươm Khổng Lồ (Tăng Tầm Chém)"; g2.setColor(Color.LIGHT_GRAY); }
-            else if (buffID == 13) { text += "Chém Toàn Phong (Góc Chém 180 Độ)"; g2.setColor(Color.ORANGE); }
+            else if (buffID == 8) { text += "Healing Potion (Restore 50% HP)"; g2.setColor(Color.PINK); }
+            else if (buffID == 9) { text += "Wind Step (+2 Move Speed)"; g2.setColor(Color.CYAN); }
+            else if (buffID == 10) { text += "Double Barrel (Fire 2 Spread Shots)"; g2.setColor(Color.WHITE); }
+            else if (buffID == 11) { text += "Bullet Storm (Ultimate 36 Shots)"; g2.setColor(Color.YELLOW); }
+            else if (buffID == 12) { text += "Giant Sword (Longer Slash Range)"; g2.setColor(Color.LIGHT_GRAY); }
+            else if (buffID == 13) { text += "Whirlwind Slash (180 Degree Arc)"; g2.setColor(Color.ORANGE); }
             
             // Căn giữa chữ trong hộp
             int textX = boxX + boxWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
@@ -347,24 +358,24 @@ public class UI {
             g2.setColor(Color.BLACK); 
             g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
         }
-        g2.setFont(new Font("Arial", Font.BOLD, 60)); g2.setColor(Color.WHITE);
+        g2.setFont(uiFont60); g2.setColor(Color.WHITE);
         // String text = "DUNGEON CONQUEROR";
         // int x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         // g2.drawString(text, x, 200);
 
         // Menu
-        g2.setFont(new Font("Arial", Font.BOLD, 30));
-        String text = "BẮT ĐẦU CHƠI";
+        g2.setFont(uiFont30);
+        String text = "START GAME";
         int x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 400);
         if (commandNum == 0) g2.drawString(">", x - 30, 400); // Vẽ con trỏ
 
-        text = "CÀI ĐẶT (OPTIONS)";
+        text = "OPTIONS";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 470);
         if (commandNum == 1) g2.drawString(">", x - 30, 470);
 
-        text = "THOÁT GAME";
+        text = "QUIT GAME";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 540);
         if (commandNum == 2) g2.drawString(">", x - 30, 540);
@@ -375,22 +386,22 @@ public class UI {
     // ==========================================
     public void drawCharacterScreen(Graphics2D g2) {
         g2.setColor(Color.BLACK); g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
-        g2.setFont(new Font("Arial", Font.BOLD, 50)); g2.setColor(Color.YELLOW);
-        String text = "CHỌN CLASS NHÂN VẬT";
+        g2.setFont(uiFont50); g2.setColor(Color.YELLOW);
+        String text = "CHOOSE CLASS";
         int x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 150);
 
-        g2.setFont(new Font("Arial", Font.BOLD, 30)); g2.setColor(Color.WHITE);
-        text = "1. XẠ THỦ (Súng viễn trình)";
+        g2.setFont(uiFont30); g2.setColor(Color.WHITE);
+        text = "1. RANGER (Ranged attacks)";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 300);
 
-        text = "2. KIẾM SĨ (Cận chiến vung nón)";
+        text = "2. SWORDSMAN (Melee cone attacks)";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 400);
 
-        g2.setFont(new Font("Arial", Font.ITALIC, 20)); g2.setColor(Color.GRAY);
-        text = "(Nhấn Phím 1 hoặc 2 để chọn, nhấn ESC để quay lại)";
+        g2.setFont(uiFont20); g2.setColor(Color.GRAY);
+        text = "(Press 1 or 2 to choose, press ESC to go back)";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 550);
     }
@@ -400,14 +411,14 @@ public class UI {
     // ==========================================
     public void drawOptionsScreen(Graphics2D g2) {
         g2.setColor(Color.BLACK); g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
-        g2.setFont(new Font("Arial", Font.BOLD, 50)); g2.setColor(Color.WHITE);
-        String text = "CÀI ĐẶT ÂM THANH";
+        g2.setFont(uiFont50); g2.setColor(Color.WHITE);
+        String text = "AUDIO OPTIONS";
         int x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
         g2.drawString(text, x, 150);
 
-        g2.setFont(new Font("Arial", Font.BOLD, 30));
+        g2.setFont(uiFont30);
         // Nhạc nền
-        text = "Nhạc Nền: "; x = 300;
+        text = "Music: "; x = 300;
         g2.drawString(text, x, 300);
         if (commandNum == 0) g2.drawString(">", x - 30, 300);
         g2.drawRect(x + 200, 275, 150, 30); // Khung thanh âm lượng
@@ -415,7 +426,7 @@ public class UI {
         g2.fillRect(x + 200, 275, volumeWidth, 30); // Thanh chạy
 
         // Hiệu ứng
-        text = "Hiệu Ứng (SFX): "; 
+        text = "Effects (SFX): "; 
         g2.drawString(text, x, 400);
         if (commandNum == 1) g2.drawString(">", x - 30, 400);
         g2.drawRect(x + 230, 375, 150, 30);
@@ -423,12 +434,12 @@ public class UI {
         g2.fillRect(x + 230, 375, volumeWidth, 30);
 
         // Quay lại
-        text = "QUAY LẠI"; 
+        text = "BACK"; 
         g2.drawString(text, x, 500);
         if (commandNum == 2) g2.drawString(">", x - 30, 500);
         
-        g2.setFont(new Font("Arial", Font.ITALIC, 20)); g2.setColor(Color.GRAY);
-        g2.drawString("(Dùng Mũi tên Trái/Phải để chỉnh)", x, 580);
+        g2.setFont(uiFont20); g2.setColor(Color.GRAY);
+        g2.drawString("(Use Left/Right arrows to adjust)", x, 580);
     }
 
     // ==========================================
@@ -437,35 +448,40 @@ public class UI {
     public void drawPauseScreen(Graphics2D g2) {
         g2.setColor(new Color(0, 0, 0, 200)); g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight); // Phủ mờ
         
-        g2.setFont(new Font("Arial", Font.BOLD, 50)); g2.setColor(Color.WHITE);
-        String text = "TẠM DỪNG";
+        g2.setFont(uiFont50); g2.setColor(Color.WHITE);
+        String text = "PAUSED";
         int x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
-        g2.drawString(text, x, 200);
+        g2.drawString(text, x, 170);
 
-        g2.setFont(new Font("Arial", Font.BOLD, 30));
+        g2.setFont(uiFont30);
         
         // 0. TIẾP TỤC (Tọa độ Y = 350)
-        text = "TIẾP TỤC";
+        text = "Resume";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
-        g2.drawString(text, x, 350);
-        if (commandNum == 0) g2.drawString(">", x - 30, 350);
+        g2.drawString(text, x, 300);
+        if (commandNum == 0) g2.drawString(">", x - 30, 300);
 
         // 1. CÀI ĐẶT ÂM THANH (Tọa độ Y = 420)
-        text = "CÀI ĐẶT";
+        text = "Restart";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
-        g2.drawString(text, x, 420);
-        if (commandNum == 1) g2.drawString(">", x - 30, 420);
+        g2.drawString(text, x, 360);
+        if (commandNum == 1) g2.drawString(">", x - 30, 360);
 
         // 2. VỀ TRANG CHỦ (Tọa độ Y = 490)
-        text = "VỀ TRANG CHỦ";
+        text = "Options";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
-        g2.drawString(text, x, 490);
-        if (commandNum == 2) g2.drawString(">", x - 30, 490);
+        g2.drawString(text, x, 420);
+        if (commandNum == 2) g2.drawString(">", x - 30, 420);
+
+        text = "Main Menu";
+        x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
+        g2.drawString(text, x, 480);
+        if (commandNum == 3) g2.drawString(">", x - 30, 480);
 
         // 3. THOÁT GAME (Tọa độ Y = 560)
-        text = "THOÁT GAME";
+        text = "Quit";
         x = gp.screenWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;
-        g2.drawString(text, x, 560);
-        if (commandNum == 3) g2.drawString(">", x - 30, 560);
+        g2.drawString(text, x, 540);
+        if (commandNum == 4) g2.drawString(">", x - 30, 540);
     }
 }

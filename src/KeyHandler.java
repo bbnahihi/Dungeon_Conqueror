@@ -103,11 +103,11 @@ public class KeyHandler implements KeyListener {
             if (code == KeyEvent.VK_ENTER && gp.ui.commandNum == 2) {
                 gp.gameState = gp.previousState; // <--- TRẢ VỀ ĐÚNG MÀN HÌNH TRƯỚC ĐÓ
                 // Chỉnh lại con trỏ để UX mượt hơn
-                gp.ui.commandNum = (gp.previousState == gp.pauseState) ? 1 : 0; 
+                gp.ui.commandNum = (gp.previousState == gp.pauseState) ? 2 : 0; 
             }
             if (code == KeyEvent.VK_ESCAPE) {
                 gp.gameState = gp.previousState; // <--- TRẢ VỀ ĐÚNG MÀN HÌNH TRƯỚC ĐÓ
-                gp.ui.commandNum = (gp.previousState == gp.pauseState) ? 1 : 0;
+                gp.ui.commandNum = (gp.previousState == gp.pauseState) ? 2 : 0;
             }
         }
         
@@ -123,9 +123,10 @@ public class KeyHandler implements KeyListener {
             // Đưa phím SPACE vào đúng trạng thái đang chơi
             if (code == KeyEvent.VK_SPACE) spacePressed = true;
             
-            if (code == KeyEvent.VK_P) { 
+            if (code == KeyEvent.VK_P || code == KeyEvent.VK_ESCAPE) { 
                 gp.pauseMusic();
                 gp.gameState = gp.pauseState; // Nhấn P để tạm dừng
+                gp.ui.commandNum = 0;
             }
         }
         
@@ -136,11 +137,11 @@ public class KeyHandler implements KeyListener {
             // Chú ý: Đổi điều kiện lên 3 vì chúng ta có 4 menu (0, 1, 2, 3)
             if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) {
                 gp.ui.commandNum--;
-                if (gp.ui.commandNum < 0) gp.ui.commandNum = 3;
+                if (gp.ui.commandNum < 0) gp.ui.commandNum = 4;
             }
             if (code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN) {
                 gp.ui.commandNum++;
-                if (gp.ui.commandNum > 3) gp.ui.commandNum = 0;
+                if (gp.ui.commandNum > 4) gp.ui.commandNum = 0;
             }
             if (code == KeyEvent.VK_ENTER) {
                 if (gp.ui.commandNum == 0) {
@@ -148,17 +149,26 @@ public class KeyHandler implements KeyListener {
                     gp.resumeMusic(); // <--- CHẠY TIẾP NHẠC
                 }
                 if (gp.ui.commandNum == 1) {
-                    gp.previousState = gp.pauseState; // <--- GHI NHỚ LÀ ĐẾN TỪ PAUSE
-                    gp.gameState = gp.optionsState; // Vào Cài đặt
+                    int selectedClass = gp.player.classType;
+                    gp.resetGame();
+                    gp.player.setupClass(selectedClass);
+                    gp.gameState = gp.playState;
                     gp.ui.commandNum = 0;
+                    gp.transitionToNewMap(gp.currentLevel);
                 }
                 if (gp.ui.commandNum == 2) {
+                    gp.previousState = gp.pauseState;
+                    gp.gameState = gp.optionsState;
+                    gp.ui.commandNum = 0;
+                    return;
+                }
+                if (gp.ui.commandNum == 3) {
                     gp.gameState = gp.titleState; // Về trang chủ
                     gp.ui.commandNum = 0;
                     gp.resetGame(); // Hủy hết quái và đạn cũ
                     gp.playMusic(6); // Mở nhạc menu
                 }
-                if (gp.ui.commandNum == 3) {
+                if (gp.ui.commandNum == 4) {
                     System.exit(0); // Thoát luôn
                 }
             }

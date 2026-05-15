@@ -8,7 +8,7 @@ public class Main {
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         window.setResizable(false);
         // Tiêu đề cửa sổ đã được thiết lập sẵn thông tin của bạn
-        window.setTitle("Dungeon Conquerer"); 
+        window.setTitle("Dungeon Conqueror"); 
         
         // Thêm màn hình game vào cửa sổ
         GamePanel gamePanel = new GamePanel();

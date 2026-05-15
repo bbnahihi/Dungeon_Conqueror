@@ -326,7 +326,7 @@ public class Monster extends Entity {
             // ... (Làm tương tự cho các hướng khác nếu có)
             
         } catch (Exception e) {
-            System.out.println("Lỗi: Không tìm thấy file ảnh Elite!");
+            System.out.println("Error: Elite image file not found!");
             e.printStackTrace();
         }
     }

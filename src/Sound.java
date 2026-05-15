@@ -39,7 +39,7 @@ public class Sound {
                         clipArray[i][j].open(ais);
                     }
                 } catch (Exception e) {
-                    System.out.println("LỖI NẠP ÂM THANH Ở ID: " + i);
+                    System.out.println("ERROR LOADING SOUND ID: " + i);
                     e.printStackTrace();
                 }
             }

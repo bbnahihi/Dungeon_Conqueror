@@ -120,7 +120,7 @@ public class Player extends Entity {
                 slashVFX[i] = ImageIO.read(getClass().getResourceAsStream(fileName));
             }
         } catch (Exception e) {
-            System.out.println("LỖI: Không tải hoặc cắt được Sprite Sheet!");
+            System.out.println("ERROR: Could not load or slice the sprite sheet!");
             e.printStackTrace();
         }
     }

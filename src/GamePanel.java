@@ -252,7 +252,7 @@ public class GamePanel extends JPanel implements Runnable {
             g2.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
             
             g2.setColor(Color.WHITE);
-            String msg = (currentLevel < 10) ? "CỬA DỊCH CHUYỂN" : "CHIẾN THẮNG";
+            String msg = (currentLevel < 10) ? "PORTAL" : "VICTORY";
             g2.drawString(msg, doorScreenX, doorScreenY - 10);
         }
 
@@ -625,7 +625,7 @@ public class GamePanel extends JPanel implements Runnable {
         try (PrintWriter pw = new PrintWriter(new FileWriter(saveFileName))) {
             pw.println(bestScore);
         } catch (IOException e) {
-            System.out.println("Không thể lưu kỷ lục: " + e.getMessage());
+            System.out.println("Could not save high score: " + e.getMessage());
         }
     }
 
