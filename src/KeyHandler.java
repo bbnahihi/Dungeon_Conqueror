@@ -207,42 +207,12 @@ public class KeyHandler implements KeyListener {
         // ==========================================
         else if (gp.gameState == gp.upgradeState) {
             if (code == KeyEvent.VK_1 || code == KeyEvent.VK_2 || code == KeyEvent.VK_3) {
-                
                 int choice = 0;
                 if (code == KeyEvent.VK_1) choice = 0;
                 if (code == KeyEvent.VK_2) choice = 1;
                 if (code == KeyEvent.VK_3) choice = 2;
-                
-                int buffID = gp.availableUpgrades[choice];
-                
-                // --- ÁP DỤNG NÂNG CẤP ---
-                if (buffID == 1) { gp.player.maxHp += 2; gp.player.hp += 2; }
-                else if (buffID == 2) { gp.player.speed += 1; }
-                else if (buffID == 3) { 
-                    gp.player.skillMaxCooldown -= 120; // Giảm 2s
-                    if (gp.player.skillMaxCooldown < 120) gp.player.skillMaxCooldown = 120; // Khóa mốc min
-                }
-                else if (buffID == 4) { gp.player.gunDamage += 1; }
-                else if (buffID == 5) { gp.player.attackCooldown -= 3; }
-                else if (buffID == 6) { gp.player.meleeDamage += 2; }
-                else if (buffID == 7) { gp.player.attackCooldown -= 5; }
-                // THÊM 6 BUFF MỚI VÀO ĐÂY:
-                else if (buffID == 8) { 
-                    gp.player.hp += gp.player.maxHp / 2; // Hồi 50% máu
-                    if (gp.player.hp > gp.player.maxHp) gp.player.hp = gp.player.maxHp; 
-                }
-                else if (buffID == 9) { gp.player.speed += 2; }
-                else if (buffID == 10) { gp.player.doubleShot = true; }
-                else if (buffID == 11) { gp.player.ultiBulletCount = 36; }
-                else if (buffID == 12) { gp.player.meleeRangeBonus += gp.tileSize; } // Kiếm dài thêm 1 ô
-                else if (buffID == 13) { gp.player.meleeAngleBonus = Math.PI / 2; } // Cộng thêm 90 độ (thành 180 độ)
-                // --- CHUYỂN SANG MÀN TIẾP THEO ---
-                gp.gameState = gp.playState;
-                int nextTheme;
-                java.util.Random rand = new java.util.Random();
-                do { nextTheme = rand.nextInt(3); } while (nextTheme == gp.currentTheme);
-                
-                gp.transitionToNewMap(gp.currentLevel);
+
+                gp.selectUpgrade(choice);
             }
         }
     }

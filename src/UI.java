@@ -321,24 +321,11 @@ public class UI {
             g2.setColor(Color.WHITE);
             g2.drawRect(boxX, boxY, boxWidth, boxHeight);
             
-            // Lấy Tên Nâng cấp dựa trên ID
-            String text = "KEY " + (i+1) + ": ";
-            int buffID = gp.availableUpgrades[i];
-            
-            if (buffID == 1) { text += "Iron Heart (+2 Max HP)"; g2.setColor(Color.GREEN); }
-            else if (buffID == 2) { text += "Hermes Boots (+1 Move Speed)"; g2.setColor(Color.CYAN); }
-            else if (buffID == 3) { text += "Meditation (-2s Ultimate Cooldown)"; g2.setColor(Color.MAGENTA); }
-            else if (buffID == 4) { text += "Armor-Piercing Shot (+1 Gun Damage)"; g2.setColor(Color.ORANGE); }
-            else if (buffID == 5) { text += "Quick Trigger (Faster Shooting)"; g2.setColor(Color.YELLOW); }
-            else if (buffID == 6) { text += "Blood Blade (+2 Melee Damage)"; g2.setColor(Color.RED); }
-            else if (buffID == 7) { text += "Swift Wrist (Faster Slashes)"; g2.setColor(Color.ORANGE); }
-            // THÊM TÊN 6 BUFF MỚI:
-            else if (buffID == 8) { text += "Healing Potion (Restore 50% HP)"; g2.setColor(Color.PINK); }
-            else if (buffID == 9) { text += "Wind Step (+2 Move Speed)"; g2.setColor(Color.CYAN); }
-            else if (buffID == 10) { text += "Double Barrel (Fire 2 Spread Shots)"; g2.setColor(Color.WHITE); }
-            else if (buffID == 11) { text += "Bullet Storm (Ultimate 36 Shots)"; g2.setColor(Color.YELLOW); }
-            else if (buffID == 12) { text += "Giant Sword (Longer Slash Range)"; g2.setColor(Color.LIGHT_GRAY); }
-            else if (buffID == 13) { text += "Whirlwind Slash (180 Degree Arc)"; g2.setColor(Color.ORANGE); }
+            Upgrade upgrade = gp.upgradeManager.getChoice(i);
+            if (upgrade == null) continue;
+
+            String text = "KEY " + (i+1) + ": " + upgrade.getName() + " (" + upgrade.getDescription() + ")";
+            g2.setColor(upgrade.getColor());
             
             // Căn giữa chữ trong hộp
             int textX = boxX + boxWidth/2 - (int)g2.getFontMetrics().getStringBounds(text, g2).getWidth()/2;

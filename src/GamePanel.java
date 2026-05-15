@@ -27,13 +27,13 @@ public class GamePanel extends JPanel implements Runnable {
     public final int gameOverState = 3;
     public final int gameWinState = 4;
     public final int upgradeState = 5; // Trạng thái chọn nâng cấp
-    public int[] availableUpgrades = new int[3]; // Lưu 3 lựa chọn hiện tại
 
     Thread gameThread;
     KeyHandler keyH = new KeyHandler(this);
     public MouseHandler mouseH = new MouseHandler(this); 
     
     public Player player = new Player(this, keyH, mouseH);
+    public UpgradeManager upgradeManager = new UpgradeManager(this);
     public TileManager tileM = new TileManager(this);
     // DANH SÁCH ĐẠN VÀ QUÁI VẬT
     public ArrayList<Bullet> bulletList = new ArrayList<>();
@@ -388,53 +388,18 @@ public class GamePanel extends JPanel implements Runnable {
 
         // Nếu lên màn 4 hoặc 7 (tức là vừa qua 3 màn) thì văng ra bảng chọn nâng cấp
         if ((currentLevel - 1) % 3 == 0 && currentLevel <= 10) {
-            rollUpgrades();
+            upgradeManager.rollUpgrades();
             gameState = upgradeState; 
         } else {
             // Không còn dùng Random Theme nữa, giao phó hết cho hàm mới
             transitionToNewMap(currentLevel);
         }
     }
-    public void rollUpgrades() {
-        java.util.ArrayList<Integer> pool = new java.util.ArrayList<>();
-        
-        // 5 Nâng cấp chung (Có thể cộng dồn nhiều lần)
-        pool.add(1); pool.add(2); pool.add(3);
-        pool.add(8); pool.add(9);
-        
-        // Nâng cấp theo Class
-        if (player.classType == 0) { // --- XẠ THỦ ---
-            // Thẻ cộng dồn (Sát thương, Tốc đánh)
-            pool.add(4); pool.add(5);
-            
-            // ĐÃ FIX: Thẻ độc nhất (Chỉ cho vào lồng cầu nếu chưa sở hữu)
-            if (player.doubleShot == false) {
-                pool.add(10); // Súng nòng đôi
-            }
-            if (player.ultiBulletCount == 24) { // Nghĩa là chưa nhặt thẻ lên 36
-                pool.add(11); // Bão đạn
-            }
-            
-        } else if (player.classType == 1) { // --- KIẾM SĨ ---
-            // Thẻ cộng dồn
-            pool.add(6); pool.add(7);
-            
-            // ĐÃ FIX: Thẻ độc nhất (Chỉ cho vào nếu chỉ số góc/tầm chém vẫn bằng 0)
-            if (player.meleeRangeBonus == 0) {
-                pool.add(12); // Gươm khổng lồ
-            }
-            if (player.meleeAngleBonus == 0) {
-                pool.add(13); // Chém toàn phong
-            }
-        }
-        
-        // Lắc lồng cầu
-        java.util.Collections.shuffle(pool);
-        
-        // Bốc 3 thẻ đầu tiên
-        for (int i = 0; i < 3; i++) { 
-            availableUpgrades[i] = pool.get(i); 
-        }
+
+    public void selectUpgrade(int choiceIndex) {
+        upgradeManager.applySelectedUpgrade(choiceIndex);
+        gameState = playState;
+        transitionToNewMap(currentLevel);
     }
     // ==========================================
     // HÀM CHUYỂN ĐỔI MỨC ÂM LƯỢNG (0-5) SANG DECIBEL
