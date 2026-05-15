@@ -46,6 +46,7 @@ public class GamePanel extends JPanel implements Runnable {
     public int currentLevel = 1;
     public int score = 0;
     public int bestScore = 0;
+    public StatsTracker statsTracker = new StatsTracker();
     private final String saveFileName = "save.dat";
 
     // Thêm vào phần khai báo biến
@@ -128,9 +129,11 @@ public class GamePanel extends JPanel implements Runnable {
 
                 if (m.getBounds().intersects(player.getBounds()) && player.invincible == false) {
                     player.hp--; 
+                    statsTracker.recordDamageTaken(1);
                     player.invincible = true; 
                     
                     if (player.hp <= 0) {
+                        statsTracker.endRun();
                         gameState = gameOverState; 
                         stopMusic(); 
                         playSE(5);   
@@ -156,12 +159,14 @@ public class GamePanel extends JPanel implements Runnable {
                 if (b.isPlayerBullet == false) {
                     if (b.getBounds().intersects(player.getBounds()) && player.invincible == false) {
                         player.hp -= b.damage;
+                        statsTracker.recordDamageTaken(b.damage);
                         player.invincible = true; 
                         
                         bulletList.remove(i); // Đạn trúng người thì nổ/biến mất
                         i--;
                         
                         if (player.hp <= 0) {
+                            statsTracker.endRun();
                             gameState = gameOverState; 
                             stopMusic(); 
                             playSE(5);   
@@ -215,6 +220,7 @@ public class GamePanel extends JPanel implements Runnable {
                     if (currentLevel < 10) { 
                         nextLevel();
                     } else {
+                        statsTracker.endRun();
                         gameState = gameWinState; 
                         stopMusic();
                         playSE(7);
@@ -385,6 +391,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         // Tăng level
         currentLevel++;
+        statsTracker.setLevelReached(currentLevel);
 
         // Nếu lên màn 4 hoặc 7 (tức là vừa qua 3 màn) thì văng ra bảng chọn nâng cấp
         if ((currentLevel - 1) % 3 == 0 && currentLevel <= 10) {
@@ -397,7 +404,9 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void selectUpgrade(int choiceIndex) {
-        upgradeManager.applySelectedUpgrade(choiceIndex);
+        if (upgradeManager.applySelectedUpgrade(choiceIndex)) {
+            statsTracker.recordUpgradeChosen();
+        }
         gameState = playState;
         transitionToNewMap(currentLevel);
     }
@@ -471,6 +480,10 @@ public class GamePanel extends JPanel implements Runnable {
 // Hàm này được gọi khi nhân vật đi vào Cổng Dịch Chuyển hoặc qua Ải
     // 1. ĐÃ SỬA CỬA NGÕ: Nhận vào int targetTheme và int level
     public void transitionToNewMap(int level) {
+        if (level == 1) {
+            statsTracker.startRun(level);
+        }
+        statsTracker.setLevelReached(level);
         
         // Dọn dẹp chiến trường cũ
         bulletList.clear(); 
@@ -517,6 +530,7 @@ public class GamePanel extends JPanel implements Runnable {
     // HỆ THỐNG RƠI ITEM
     // ==========================================
     public void handleMonsterDefeated(Monster defeatedMonster) {
+        statsTracker.recordEnemyKilled();
         addScore(getMonsterScore(defeatedMonster));
         generateParticles(defeatedMonster.x, defeatedMonster.y);
         spawnItemDrop(defeatedMonster);
@@ -600,6 +614,7 @@ public class GamePanel extends JPanel implements Runnable {
     public void resetGame() {
         currentLevel = 1;
         score = 0;
+        statsTracker.reset();
         player.setDefaultValues(); // Đưa máu, tốc độ, nâng cấp về mặc định
         monsterList.clear();
         bulletList.clear();

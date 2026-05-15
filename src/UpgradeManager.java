@@ -148,10 +148,12 @@ public class UpgradeManager {
         return currentChoices;
     }
 
-    public void applySelectedUpgrade(int index) {
+    public boolean applySelectedUpgrade(int index) {
         Upgrade selectedUpgrade = getChoice(index);
         if (selectedUpgrade != null) {
             selectedUpgrade.apply(gp);
+            return true;
         }
+        return false;
     }
 }

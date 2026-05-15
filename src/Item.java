@@ -36,6 +36,7 @@ public class Item {
 
         if (getBounds().intersects(gp.player.getBounds())) {
             applyEffect();
+            gp.statsTracker.recordItemCollected();
             alive = false;
         }
     }

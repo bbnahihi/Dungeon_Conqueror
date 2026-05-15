@@ -246,6 +246,8 @@ public class UI {
         x = gp.screenWidth / 2 - length / 2;
         y = gp.screenHeight / 2 + 150;
         g2.drawString(text, x, y);
+
+        drawRunStats(g2, y + 35);
     }
     // ==========================================
     // 5. VẼ MÀN HÌNH CHIẾN THẮNG
@@ -287,6 +289,25 @@ public class UI {
         x = gp.screenWidth / 2 - length / 2;
         y = gp.screenHeight / 2 + 100;
         g2.drawString(text, x, y);
+
+        drawRunStats(g2, y + 35);
+    }
+
+    private void drawRunStats(Graphics2D g2, int startY) {
+        StatsTracker stats = gp.statsTracker;
+        g2.setFont(uiFont20);
+        g2.setColor(Color.WHITE);
+
+        int leftX = 95;
+        int rightX = 425;
+        int rowGap = 24;
+
+        g2.drawString("Enemies Defeated: " + stats.getEnemiesKilled(), leftX, startY);
+        g2.drawString("Items Collected: " + stats.getItemsCollected(), rightX, startY);
+        g2.drawString("Damage Taken: " + stats.getDamageTaken(), leftX, startY + rowGap);
+        g2.drawString("Upgrades Chosen: " + stats.getUpgradesChosen(), rightX, startY + rowGap);
+        g2.drawString("Level Reached: " + stats.getLevelReached(), leftX, startY + rowGap * 2);
+        g2.drawString("Survival Time: " + stats.getSurvivalTimeText(), rightX, startY + rowGap * 2);
     }
 
     // ==========================================
