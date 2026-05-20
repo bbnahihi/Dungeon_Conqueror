@@ -24,22 +24,31 @@ public class KeyHandler implements KeyListener {
         if (gp.gameState == gp.titleState) {
             if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) {
                 gp.ui.commandNum--;
-                if (gp.ui.commandNum < 0) gp.ui.commandNum = 2;
+                if (gp.ui.commandNum < 0) gp.ui.commandNum = 3;
             }
             if (code == KeyEvent.VK_S || code == KeyEvent.VK_DOWN) {
                 gp.ui.commandNum++;
-                if (gp.ui.commandNum > 2) gp.ui.commandNum = 0;
+                if (gp.ui.commandNum > 3) gp.ui.commandNum = 0;
+            }
+            if (gp.ui.commandNum == 1 && (code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT)) {
+                gp.cycleDifficultyBack();
+            }
+            if (gp.ui.commandNum == 1 && (code == KeyEvent.VK_D || code == KeyEvent.VK_RIGHT)) {
+                gp.cycleDifficulty();
             }
             if (code == KeyEvent.VK_ENTER) {
                 if (gp.ui.commandNum == 0) {
                     gp.gameState = gp.characterState; // Vào màn chọn nhân vật
                 }
                 if (gp.ui.commandNum == 1) {
+                    gp.cycleDifficulty();
+                }
+                if (gp.ui.commandNum == 2) {
                     gp.previousState = gp.titleState; // Ghi nhớ Options được mở từ menu chính
                     gp.gameState = gp.optionsState; // Vào cài đặt
                     gp.ui.commandNum = 0; // Reset con trỏ cho màn cài đặt
                 }
-                if (gp.ui.commandNum == 2) {
+                if (gp.ui.commandNum == 3) {
                     System.exit(0); // Thoát game
                 }
             }

@@ -60,6 +60,7 @@ public class GamePanel extends JPanel implements Runnable {
     public final int THEME_DESERT = 2;
     
     public int currentTheme = THEME_FOREST; // Mặc định là Rừng
+    public Difficulty difficulty = Difficulty.NORMAL;
     public int previousState; // Ghi nhớ xem Options được gọi từ Menu hay Pause
 
     // Thêm 2 state mới
@@ -330,12 +331,13 @@ public class GamePanel extends JPanel implements Runnable {
             int bossWorldY = (maxWorldRow / 4) * tileSize;
             
             Monster boss = new Monster(this, bossWorldX, bossWorldY, 3);
+            difficulty.applyBossStats(boss);
             monsterList.add(boss);
             return; // Dừng hàm tại đây, KHÔNG sinh bầy quái nhỏ nữa!
         }
         // TĂNG ĐỘ KHÓ THEO LEVEL
         // Sau khi có item rơi, cần tăng áp lực bằng cách tăng số quái mạnh hơn.
-        int monsterCount = 10 + (level * 4); 
+        int monsterCount = difficulty.applyEnemyCount(10 + (level * 4)); 
         int spawned = 0;
         
         // ĐÃ FIX: Lắp thêm bộ đếm an toàn
@@ -374,6 +376,8 @@ public class GamePanel extends JPanel implements Runnable {
                     if (currentTheme == THEME_DUNGEON) m.maxHp += 2; 
                     else if (currentTheme == THEME_DESERT) m.speed += 1; 
                     
+                    difficulty.applyMonsterStats(m);
+                    
                     if (m.isElite == false) m.hp = m.maxHp; 
                     
                     monsterList.add(m);
@@ -409,6 +413,193 @@ public class GamePanel extends JPanel implements Runnable {
         }
         gameState = playState;
         transitionToNewMap(currentLevel);
+    }
+
+    public void cycleDifficulty() {
+        difficulty = difficulty.next();
+    }
+
+    public void cycleDifficultyBack() {
+        difficulty = difficulty.previous();
+    }
+
+    public boolean isMenuLikeState() {
+        return gameState == titleState
+                || gameState == characterState
+                || gameState == optionsState
+                || gameState == pauseState
+                || gameState == upgradeState
+                || gameState == gameOverState
+                || gameState == gameWinState;
+    }
+
+    public void handleUIClick(int x, int y) {
+        if (gameState == titleState) {
+            handleTitleClick(x, y);
+        } else if (gameState == characterState) {
+            handleCharacterClick(x, y);
+        } else if (gameState == optionsState) {
+            handleOptionsClick(x, y);
+        } else if (gameState == pauseState) {
+            handlePauseClick(x, y);
+        } else if (gameState == upgradeState) {
+            handleUpgradeClick(x, y);
+        } else if (gameState == gameOverState) {
+            handleGameOverClick(x, y);
+        } else if (gameState == gameWinState) {
+            handleGameWinClick(x, y);
+        }
+    }
+
+    private void handleTitleClick(int x, int y) {
+        for (int i = 0; i < 4; i++) {
+            if (ui.getTitleMenuBounds(i).contains(x, y)) {
+                ui.commandNum = i;
+                if (i == 0) {
+                    gameState = characterState;
+                } else if (i == 1) {
+                    cycleDifficulty();
+                } else if (i == 2) {
+                    previousState = titleState;
+                    gameState = optionsState;
+                    ui.commandNum = 0;
+                } else if (i == 3) {
+                    System.exit(0);
+                }
+                return;
+            }
+        }
+    }
+
+    private void handleCharacterClick(int x, int y) {
+        for (int i = 0; i < 2; i++) {
+            if (ui.getCharacterChoiceBounds(i).contains(x, y)) {
+                startRunWithClass(i);
+                return;
+            }
+        }
+    }
+
+    private void handleOptionsClick(int x, int y) {
+        Rectangle musicBounds = ui.getMusicVolumeBounds();
+        Rectangle sfxBounds = ui.getSfxVolumeBounds();
+
+        if (musicBounds.contains(x, y)) {
+            ui.commandNum = 0;
+            setMusicVolumeLevel(volumeLevelFromClick(x, musicBounds));
+            return;
+        }
+        if (sfxBounds.contains(x, y)) {
+            ui.commandNum = 1;
+            setSeVolumeLevel(volumeLevelFromClick(x, sfxBounds));
+            return;
+        }
+
+        if (ui.getOptionsRowBounds(0).contains(x, y)) {
+            ui.commandNum = 0;
+            setMusicVolumeLevel((musicVolume + 1) % 6);
+            return;
+        }
+        if (ui.getOptionsRowBounds(1).contains(x, y)) {
+            ui.commandNum = 1;
+            setSeVolumeLevel((seVolume + 1) % 6);
+            return;
+        }
+        if (ui.getOptionsRowBounds(2).contains(x, y)) {
+            returnFromOptions();
+        }
+    }
+
+    private void handlePauseClick(int x, int y) {
+        for (int i = 0; i < 5; i++) {
+            if (ui.getPauseMenuBounds(i).contains(x, y)) {
+                ui.commandNum = i;
+                if (i == 0) {
+                    resumePausedGame();
+                } else if (i == 1) {
+                    restartCurrentRun();
+                } else if (i == 2) {
+                    previousState = pauseState;
+                    gameState = optionsState;
+                    ui.commandNum = 0;
+                } else if (i == 3) {
+                    returnToTitleMenu();
+                } else if (i == 4) {
+                    System.exit(0);
+                }
+                return;
+            }
+        }
+    }
+
+    private void handleUpgradeClick(int x, int y) {
+        for (int i = 0; i < 3; i++) {
+            if (ui.getUpgradeChoiceBounds(i).contains(x, y)) {
+                selectUpgrade(i);
+                return;
+            }
+        }
+    }
+
+    private void handleGameOverClick(int x, int y) {
+        if (ui.getGameOverRestartBounds().contains(x, y)) {
+            returnToTitleMenu();
+        }
+    }
+
+    private void handleGameWinClick(int x, int y) {
+        if (ui.getGameWinMainMenuBounds().contains(x, y)) {
+            returnToTitleMenu();
+        }
+    }
+
+    private void startRunWithClass(int classType) {
+        gameState = playState;
+        currentLevel = 1;
+        player.setDefaultValues();
+        particleList.clear();
+        player.setupClass(classType);
+        transitionToNewMap(currentLevel);
+    }
+
+    private void resumePausedGame() {
+        gameState = playState;
+        resumeMusic();
+    }
+
+    private void restartCurrentRun() {
+        int selectedClass = player.classType;
+        resetGame();
+        player.setupClass(selectedClass);
+        gameState = playState;
+        ui.commandNum = 0;
+        transitionToNewMap(currentLevel);
+    }
+
+    private void returnToTitleMenu() {
+        gameState = titleState;
+        ui.commandNum = 0;
+        resetGame();
+        playMusic(6);
+    }
+
+    private void returnFromOptions() {
+        gameState = previousState;
+        ui.commandNum = (previousState == pauseState) ? 2 : 0;
+    }
+
+    private int volumeLevelFromClick(int x, Rectangle bounds) {
+        int relativeX = Math.max(0, Math.min(bounds.width, x - bounds.x));
+        return Math.max(0, Math.min(5, (int) Math.ceil(relativeX / 30.0)));
+    }
+
+    private void setMusicVolumeLevel(int volumeLevel) {
+        musicVolume = Math.max(0, Math.min(5, volumeLevel));
+        music.setVolume(getVolumeDecibels(musicVolume));
+    }
+
+    private void setSeVolumeLevel(int volumeLevel) {
+        seVolume = Math.max(0, Math.min(5, volumeLevel));
     }
     // ==========================================
     // HÀM CHUYỂN ĐỔI MỨC ÂM LƯỢNG (0-5) SANG DECIBEL
@@ -550,7 +741,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // Giảm tỉ lệ rơi item: quái thường 20%, elite 50%.
-        double dropChance = defeatedMonster.isElite ? 0.50 : 0.20;
+        double dropChance = difficulty.applyItemDropChance(defeatedMonster.isElite ? 0.50 : 0.20);
         if (Math.random() > dropChance) return;
 
         int itemType = rollItemType();

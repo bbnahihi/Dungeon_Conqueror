@@ -20,6 +20,8 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
     public void mousePressed(MouseEvent e) {
         // e.getButton() == MouseEvent.BUTTON1 nghĩa là CHỈ NHẬN CHUỘT TRÁI
         if (e.getButton() == MouseEvent.BUTTON1) {
+            mouseX = e.getX();
+            mouseY = e.getY();
             pressed = true;
 
             if (gp != null) {
@@ -31,7 +33,13 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
     @Override
     public void mouseReleased(MouseEvent e) {
         if (e.getButton() == MouseEvent.BUTTON1) {
+            mouseX = e.getX();
+            mouseY = e.getY();
             pressed = false;
+
+            if (gp != null && gp.isMenuLikeState()) {
+                gp.handleUIClick(mouseX, mouseY);
+            }
         }
     }
 

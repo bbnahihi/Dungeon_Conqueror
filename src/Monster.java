@@ -192,7 +192,7 @@ public class Monster extends Entity {
                 gp.bulletList.add(b);
                 
                 // Quái bắn xa bắn nhanh dần theo level.
-                shootCooldown = Math.max(35, 75 - gp.currentLevel * 4); 
+                shootCooldown = gp.difficulty.applyRangedCooldown(Math.max(35, 75 - gp.currentLevel * 4)); 
             }
             if (shootCooldown > 0) shootCooldown--;
         }
@@ -207,7 +207,7 @@ public class Monster extends Entity {
             boolean isEnraged = (this.hp <= this.maxHp / 2);
 
             // 1. BUFF TỐC ĐỘ DI CHUYỂN
-            this.speed = isEnraged ? 6 : 4; // Boss gây áp lực mạnh hơn ở cả 2 phase
+            this.speed = gp.difficulty.getBossSpeed(isEnraged); // Boss gây áp lực mạnh hơn ở cả 2 phase
 
             // 2. LOGIC XẢ ĐẠN (BULLET HELL)
             if (shootCooldown == 0) {
@@ -217,13 +217,15 @@ public class Monster extends Entity {
                 if (isEnraged) {
                     // --- PHASE 2: BÃO ĐẠN ---
                     // Tỉ lệ 40% mỗi khung hình Boss sẽ đẻ ra một con quái cận chiến (Type 1) bảo vệ mình
-                    if (Math.random() < 0.50) {
+                    if (Math.random() < gp.difficulty.applyBossMinionChance(0.50)) {
                         Monster minion = new Monster(gp, x + gp.tileSize, y + gp.tileSize, 1);
+                        gp.difficulty.applyMonsterStats(minion);
+                        if (minion.isElite == false) minion.hp = minion.maxHp;
                         gp.monsterList.add(minion);
                     }
                     
                     // Tỏa 12 hướng, sát thương 2 máu/viên (Đã sửa vòng lặp lên 12 cho khớp chia góc 360 độ)
-                    for(int i = 0; i < 20; i++) {
+                    for(int i = 0; i < 12; i++) {
                         double angle = Math.PI / 6 * i; // Chia 360 độ cho 12
                         int tX = (int) (startX + Math.cos(angle) * 100);
                         int tY = (int) (startY + Math.sin(angle) * 100);
@@ -232,7 +234,7 @@ public class Monster extends Entity {
                         Bullet b = new Bullet(gp, startX, startY, tX, tY, false, 3);
                         gp.bulletList.add(b);
                     }
-                    shootCooldown = 25; // Nhả đạn nhanh hơn ở phase 2
+                    shootCooldown = gp.difficulty.getBossShootCooldown(true); // Nhả đạn nhanh hơn ở phase 2
                     
                 } else {
                     // --- PHASE 1: CHILL CHILL ---
@@ -245,7 +247,7 @@ public class Monster extends Entity {
                         Bullet b = new Bullet(gp, startX, startY, tX, tY, false, 1);
                         gp.bulletList.add(b);
                     }
-                    shootCooldown = 75; // Phase 1 cũng nhanh hơn một chút
+                    shootCooldown = gp.difficulty.getBossShootCooldown(false); // Phase 1 cũng nhanh hơn một chút
                 }
             }
             if (shootCooldown > 0) shootCooldown--;

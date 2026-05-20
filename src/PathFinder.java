@@ -107,15 +107,26 @@ public class PathFinder {
     }
 
     private void openNode(Node node) {
-        if (node.open == false && node.checked == false && node.solid == false) {
-            node.open = true;
-            node.parent = currentNode;
-            node.gCost = currentNode.gCost + 1;
-            node.hCost = Math.abs(node.col - goalNode.col) + Math.abs(node.row - goalNode.row);
-            node.fCost = node.gCost + node.hCost;
-            openList.add(node);
+    if (node.open == false && node.checked == false && node.solid == false) {
+        node.open = true;
+        node.parent = currentNode;
+        
+        // Nếu ô tiếp theo nằm chéo (khác cả cột và hàng), cộng chi phí 14, đi thẳng cộng 10
+        if (node.col != currentNode.col && node.row != currentNode.row) {
+            node.gCost = currentNode.gCost + 14;
+        } else {
+            node.gCost = currentNode.gCost + 10;
         }
+        
+        // Sử dụng Diagonal Distance (Octile Distance) chuẩn cho không gian 8 hướng
+        int dx = Math.abs(node.col - goalNode.col);
+        int dy = Math.abs(node.row - goalNode.row);
+        node.hCost = 10 * (dx + dy) + (14 - 2 * 10) * Math.min(dx, dy);
+        
+        node.fCost = node.gCost + node.hCost;
+        openList.add(node);
     }
+}
 
     private void trackThePath() {
         Node current = goalNode;

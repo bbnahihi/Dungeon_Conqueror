@@ -284,8 +284,7 @@ public class Player extends Entity {
                         gp.bulletList.add(new Bullet(gp, x + 24, y + 24, targetWorldX, targetWorldY, true, gunDamage));
                     }
                     gp.playSE(1); 
-                    if (attackCooldown < 15) attackCooldown = 15; 
-                    shootCooldown = attackCooldown; 
+                    shootCooldown = Math.max(15, attackCooldown);
                 }
                 
                 // --- KIẾM SĨ (Chém cận chiến) ---
@@ -350,8 +349,7 @@ public class Player extends Entity {
                             }
                         }
                     }
-                    if (attackCooldown < 20) attackCooldown = 20; 
-                    shootCooldown = attackCooldown; 
+                    shootCooldown = Math.max(20, attackCooldown);
                 }
             } 
         } 
