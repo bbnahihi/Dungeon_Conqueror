@@ -1,18 +1,39 @@
-## Getting Started
+# JavaOOP Game
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+## Giới thiệu
+Đây là game 2D được xây dựng bằng Java Swing cho bài tập lớn môn Lập trình hướng đối tượng.
 
-## Folder Structure
+## Thành viên nhóm
+- Thành viên 1: ...
+- Thành viên 2: ...
+- Thành viên 3: ...
+- Thành viên 4: ...
+- Thành viên 5: ...
 
-The workspace contains two folders by default, where:
+## Tính năng chính
+- Di chuyển, tấn công, kỹ năng nhân vật
+- Quái cận chiến, quái bắn xa, elite, boss
+- Hệ thống item rơi
+- Hệ thống upgrade
+- Chọn độ khó Easy / Normal / Hard
+- Pause menu
+- Mouse UI support
+- Score / High Score
+- Thống kê cuối trận
 
-- `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
+## Cấu trúc project
+- `src/game/main`: điểm chạy chương trình
+- `src/game/core`: game loop, collision, pathfinding
+- `src/game/entity`: player, monster, item, bullet
+- `src/game/input`: keyboard, mouse
+- `src/game/ui`: giao diện
+- `src/game/tile`: bản đồ tile
+- `src/game/system`: âm thanh, upgrade, difficulty, stats
 
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
+## Cách chạy
 
-> If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
+### Windows
+Double click:
 
-## Dependency Management
-
-The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
+```bash
+run_game.bat

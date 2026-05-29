@@ -1,0 +1,23 @@
+# Build outputs
+out/
+bin/
+*.class
+
+# Temporary compile file
+sources.txt
+
+# Runtime save file
+save.dat
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Java archives generated locally
+*.jar
+
+# Keep VS Code config if useful for the team
+# .vscode/
