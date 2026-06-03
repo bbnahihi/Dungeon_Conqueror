@@ -22,6 +22,13 @@ public class KeyHandler implements KeyListener {
         
         int code = e.getKeyCode();
 
+        if (gp.gameState == gp.storyState) {
+            if (code == KeyEvent.VK_ENTER) {
+                gp.advanceStory();
+            }
+            return;
+        }
+
         // Title menu.
         if (gp.gameState == gp.titleState) {
             if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) {
@@ -61,17 +68,7 @@ public class KeyHandler implements KeyListener {
                 gp.ui.commandNum = 0;
             }
             if (code == KeyEvent.VK_1 || code == KeyEvent.VK_2) {
-                gp.gameState = gp.playState;
-                
-                gp.currentLevel = 1;     
-                
-                gp.player.setDefaultValues(); 
-                gp.particleList.clear(); 
-                
-                if (code == KeyEvent.VK_1) gp.player.setupClass(0); 
-                if (code == KeyEvent.VK_2) gp.player.setupClass(1); 
-                
-                gp.transitionToNewMap(gp.currentLevel); 
+                gp.startRunWithClass(code == KeyEvent.VK_1 ? 0 : 1);
             }
         }
         else if (gp.gameState == gp.optionsState) {

@@ -11,6 +11,9 @@ import game.input.MouseHandler;
 import game.system.Difficulty;
 import game.system.Sound;
 import game.system.StatsTracker;
+import game.system.StoryManager;
+import game.system.StoryManager.StoryAction;
+import game.system.StoryManager.StoryMoment;
 import game.system.UpgradeManager;
 import game.tile.TileManager;
 import game.ui.UI;
@@ -42,6 +45,7 @@ public class GamePanel extends JPanel implements Runnable {
     public final int gameOverState = 3;
     public final int gameWinState = 4;
     public final int upgradeState = 5;
+    public final int storyState = 8;
 
     Thread gameThread;
     KeyHandler keyH = new KeyHandler(this);
@@ -60,7 +64,9 @@ public class GamePanel extends JPanel implements Runnable {
     public int score = 0;
     public int bestScore = 0;
     public StatsTracker statsTracker = new StatsTracker();
+    public StoryManager storyManager = new StoryManager();
     private final String saveFileName = "save.dat";
+    private int pendingStoryClassType = 0;
 
     public ArrayList<Particle> particleList = new ArrayList<>();
     public Sound music = new Sound();
@@ -219,10 +225,7 @@ public class GamePanel extends JPanel implements Runnable {
                     if (currentLevel < 10) { 
                         nextLevel();
                     } else {
-                        statsTracker.endRun();
-                        gameState = gameWinState; 
-                        stopMusic();
-                        playSE(7);
+                        beginEndingStory();
                     }
                 }
             } 
@@ -237,6 +240,8 @@ public class GamePanel extends JPanel implements Runnable {
 
         if (gameState == titleState) {
             ui.drawTitleScreen(g2);
+        } else if (gameState == storyState) {
+            ui.drawStoryScreen(g2);
         } else {
             tileM.draw(g2); 
             
@@ -386,7 +391,7 @@ public class GamePanel extends JPanel implements Runnable {
             upgradeManager.rollUpgrades();
             gameState = upgradeState; 
         } else {
-            transitionToNewMap(currentLevel);
+            transitionToLevelWithStory(currentLevel);
         }
     }
 
@@ -394,8 +399,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (upgradeManager.applySelectedUpgrade(choiceIndex)) {
             statsTracker.recordUpgradeChosen();
         }
-        gameState = playState;
-        transitionToNewMap(currentLevel);
+        transitionToLevelWithStory(currentLevel);
     }
 
     public void cycleDifficulty() {
@@ -412,6 +416,7 @@ public class GamePanel extends JPanel implements Runnable {
                 || gameState == optionsState
                 || gameState == pauseState
                 || gameState == upgradeState
+                || gameState == storyState
                 || gameState == gameOverState
                 || gameState == gameWinState;
     }
@@ -427,6 +432,8 @@ public class GamePanel extends JPanel implements Runnable {
             handlePauseClick(x, y);
         } else if (gameState == upgradeState) {
             handleUpgradeClick(x, y);
+        } else if (gameState == storyState) {
+            advanceStory();
         } else if (gameState == gameOverState) {
             handleGameOverClick(x, y);
         } else if (gameState == gameWinState) {
@@ -536,13 +543,51 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    private void startRunWithClass(int classType) {
+    public void startRunWithClass(int classType) {
+        pendingStoryClassType = classType;
+        storyManager.resetRunFlags();
+        storyManager.begin(StoryMoment.INTRO, StoryAction.START_RUN);
+        gameState = storyState;
+    }
+
+    private void startRunAfterIntro() {
         gameState = playState;
         currentLevel = 1;
         player.setDefaultValues();
         particleList.clear();
-        player.setupClass(classType);
+        player.setupClass(pendingStoryClassType);
         transitionToNewMap(currentLevel);
+    }
+
+    public void advanceStory() {
+        StoryAction action = storyManager.finishCurrentStory();
+
+        if (action == StoryAction.START_RUN) {
+            startRunAfterIntro();
+        } else if (action == StoryAction.START_BOSS) {
+            gameState = playState;
+            transitionToNewMap(10);
+        } else if (action == StoryAction.SHOW_WIN) {
+            gameState = gameWinState;
+        }
+    }
+
+    private void transitionToLevelWithStory(int level) {
+        if (level == 10 && storyManager.shouldShowPreBossStory()) {
+            storyManager.begin(StoryMoment.PRE_BOSS, StoryAction.START_BOSS);
+            gameState = storyState;
+        } else {
+            gameState = playState;
+            transitionToNewMap(level);
+        }
+    }
+
+    private void beginEndingStory() {
+        statsTracker.endRun();
+        storyManager.begin(StoryMoment.ENDING, StoryAction.SHOW_WIN);
+        gameState = storyState;
+        stopMusic();
+        playSE(7);
     }
 
     private void resumePausedGame() {
@@ -768,6 +813,7 @@ public class GamePanel extends JPanel implements Runnable {
         currentLevel = 1;
         score = 0;
         statsTracker.reset();
+        storyManager.resetRunFlags();
         player.setDefaultValues();
         monsterList.clear();
         bulletList.clear();

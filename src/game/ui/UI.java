@@ -321,6 +321,64 @@ public class UI {
             levelClearCounter = 0;
         }
     }
+
+    public void drawStoryScreen(Graphics2D g2) {
+        applyRendering(g2);
+        drawMenuBackground(g2, 150);
+
+        int panelW = 620;
+        int panelH = 452;
+        int panelX = gp.screenWidth / 2 - panelW / 2;
+        int panelY = 62;
+        drawPanel(g2, panelX, panelY, panelW, panelH);
+
+        drawCenteredText(g2, gp.storyManager.getTitle(), gp.screenWidth / 2, panelY + 58, headingFont, goldColor);
+
+        Font storyFont = new Font("Arial", Font.PLAIN, 18);
+        int textX = panelX + 42;
+        int textY = panelY + 104;
+        int textW = panelW - 84;
+        int lineHeight = 24;
+
+        String[] lines = gp.storyManager.getLines();
+        for (int i = 0; i < lines.length; i++) {
+            textY = drawWrappedStoryLine(g2, lines[i], textX, textY, textW, lineHeight, storyFont);
+        }
+
+        drawCenteredText(g2, "Press ENTER or click to continue", gp.screenWidth / 2,
+                panelY + panelH - 34, smallFont, textColor);
+    }
+
+    private int drawWrappedStoryLine(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight, Font font) {
+        if (text.length() == 0) {
+            return y + lineHeight / 2;
+        }
+
+        g2.setFont(font);
+        g2.setColor(textColor);
+
+        String[] words = text.split(" ");
+        String line = "";
+
+        for (int i = 0; i < words.length; i++) {
+            String testLine = line.length() == 0 ? words[i] : line + " " + words[i];
+            int lineWidth = (int) g2.getFontMetrics().getStringBounds(testLine, g2).getWidth();
+
+            if (lineWidth > maxWidth && line.length() > 0) {
+                g2.drawString(line, x, y);
+                y += lineHeight;
+                line = words[i];
+            } else {
+                line = testLine;
+            }
+        }
+
+        if (line.length() > 0) {
+            g2.drawString(line, x, y);
+        }
+
+        return y + lineHeight + 4;
+    }
     
 
     public void drawGameOverScreen(Graphics2D g2) {
