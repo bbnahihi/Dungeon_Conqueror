@@ -38,7 +38,8 @@ public class CollisionChecker {
         int tileNum3 = gp.tileM.mapTileNum[entityLeftCol][entityBottomRow]; 
         int tileNum4 = gp.tileM.mapTileNum[entityRightCol][entityBottomRow];
 
-        if (tileNum1 == 1 || tileNum2 == 1 || tileNum3 == 1 || tileNum4 == 1) {
+        if (gp.tileM.isCollisionTile(tileNum1) || gp.tileM.isCollisionTile(tileNum2) ||
+            gp.tileM.isCollisionTile(tileNum3) || gp.tileM.isCollisionTile(tileNum4)) {
             entity.collisionOn = true;
         }
     }

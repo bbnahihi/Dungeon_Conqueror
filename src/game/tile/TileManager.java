@@ -52,6 +52,20 @@ public class TileManager {
         }
     }
 
+    public boolean isCollisionTile(int tileId) {
+        if (tileId < 0 || tileId >= tile.length) {
+            return true;
+        }
+        if (tile[tileId] == null) {
+            return true;
+        }
+        return tile[tileId].collision;
+    }
+
+    public boolean isWalkableTile(int tileId) {
+        return isCollisionTile(tileId) == false;
+    }
+
     // Load the map for this level.
     public void loadMap(int level) {
         try {
@@ -112,7 +126,7 @@ public class TileManager {
                 worldY + gp.tileSize > gp.player.y - gp.player.screenY &&
                 worldY - gp.tileSize < gp.player.y + gp.player.screenY) {
                 
-                if (tile[tileNum] != null) {
+                if (tileNum >= 0 && tileNum < tile.length && tile[tileNum] != null) {
                     if (tile[tileNum].image != null) {
                         g2.drawImage(tile[tileNum].image, screenX, screenY, gp.tileSize, gp.tileSize, null);
                     } else {

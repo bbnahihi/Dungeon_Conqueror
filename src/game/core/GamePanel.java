@@ -19,11 +19,13 @@ import game.tile.TileManager;
 import game.ui.UI;
 
 import javax.swing.JPanel;
+import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Random;
 import java.io.*;
@@ -67,6 +69,14 @@ public class GamePanel extends JPanel implements Runnable {
     public StoryManager storyManager = new StoryManager();
     private final String saveFileName = "save.dat";
     private int pendingStoryClassType = 0;
+    private BufferedImage bossArenaImage;
+    private BufferedImage portalSpriteSheet;
+    private BufferedImage[] portalFrames;
+    private int portalFrameIndex = 0;
+    private int portalFrameCounter = 0;
+    private static final int PORTAL_FRAME_COUNT = 8;
+    private static final int PORTAL_FRAME_DELAY = 6;
+    private ArrayList<BossStageDecoration> bossStageDecorations = new ArrayList<>();
 
     public ArrayList<Particle> particleList = new ArrayList<>();
     public Sound music = new Sound();
@@ -101,14 +111,169 @@ public class GamePanel extends JPanel implements Runnable {
         this.setFocusable(true); 
 
         gameState = titleState;
+        loadBossArenaImage();
+        loadPortalImage();
+        loadBossStageDecorations();
         loadBestScore();
 
         playMusic(6);
     }
 
+    private static class BossStageDecoration {
+        BufferedImage image;
+        int worldX;
+        int worldY;
+        int drawWidth;
+        int drawHeight;
+
+        BossStageDecoration(BufferedImage image, int worldX, int worldY, int drawWidth, int drawHeight) {
+            this.image = image;
+            this.worldX = worldX;
+            this.worldY = worldY;
+            this.drawWidth = drawWidth;
+            this.drawHeight = drawHeight;
+        }
+    }
+
     public void startGameThread() {
         gameThread = new Thread(this);
         gameThread.start(); 
+    }
+
+    private void loadBossArenaImage() {
+        try (InputStream is = getClass().getResourceAsStream("/res/boss_stage/boss_arena.png")) {
+            if (is != null) {
+                bossArenaImage = ImageIO.read(is);
+            }
+        } catch (IOException e) {
+            bossArenaImage = null;
+        }
+    }
+
+    private void loadPortalImage() {
+        try (InputStream is = getClass().getResourceAsStream("/res/portal/portal_vortex_8frame.png")) {
+            if (is != null) {
+                portalSpriteSheet = ImageIO.read(is);
+                if (portalSpriteSheet != null) {
+                    slicePortalSpriteSheet();
+                }
+            } else {
+                System.out.println("Warning: could not load portal sprite sheet /res/portal/portal_vortex_8frame.png");
+            }
+        } catch (IOException e) {
+            System.out.println("Warning: could not load portal sprite sheet /res/portal/portal_vortex_8frame.png");
+            portalSpriteSheet = null;
+        }
+
+        if (portalFrames == null || portalFrames.length == 0) {
+            loadPortalFallbackFrames();
+        }
+    }
+
+    private void slicePortalSpriteSheet() {
+        if (portalSpriteSheet.getWidth() % PORTAL_FRAME_COUNT != 0) {
+            System.out.println("Warning: portal sprite sheet width is not divisible by 8");
+        }
+
+        int frameWidth = portalSpriteSheet.getWidth() / PORTAL_FRAME_COUNT;
+        int frameHeight = portalSpriteSheet.getHeight();
+        if (frameWidth <= 0 || frameHeight <= 0) {
+            portalFrames = null;
+            return;
+        }
+
+        portalFrames = new BufferedImage[PORTAL_FRAME_COUNT];
+        for (int i = 0; i < PORTAL_FRAME_COUNT; i++) {
+            portalFrames[i] = portalSpriteSheet.getSubimage(i * frameWidth, 0, frameWidth, frameHeight);
+        }
+        portalFrameIndex = 0;
+        portalFrameCounter = 0;
+    }
+
+    private void loadPortalFallbackFrames() {
+        BufferedImage[] frames = new BufferedImage[PORTAL_FRAME_COUNT];
+
+        for (int i = 0; i < frames.length; i++) {
+            String path = "/res/portal/portal_vortex_frame_" + (i + 1) + ".png";
+            try (InputStream is = getClass().getResourceAsStream(path)) {
+                if (is == null) {
+                    System.out.println("Warning: could not load portal frame " + path);
+                    portalFrames = null;
+                    return;
+                }
+                frames[i] = ImageIO.read(is);
+                if (frames[i] == null) {
+                    System.out.println("Warning: could not read portal frame " + path);
+                    portalFrames = null;
+                    return;
+                }
+            } catch (IOException e) {
+                System.out.println("Warning: could not load portal frame " + path);
+                portalFrames = null;
+                return;
+            }
+        }
+
+        portalFrames = frames;
+        portalFrameIndex = 0;
+        portalFrameCounter = 0;
+    }
+
+    private void loadBossStageDecorations() {
+        bossStageDecorations.clear();
+
+        addBossStageDecoration("12_void_portal_gate.png", 13, 3, 4, 4);
+        addBossStageDecoration("11_ritual_altar_platform.png", 11, 5, 7, 4);
+        addBossStageDecoration("06_hanging_banner.png", 5, 2, 2, 3);
+        addBossStageDecoration("06_hanging_banner.png", 23, 2, 2, 3);
+        addBossStageDecoration("07_chain_fence.png", 9, 3, 3, 1);
+        addBossStageDecoration("07_chain_fence.png", 18, 3, 3, 1);
+        addBossStageDecoration("07_chain_fence.png", 11, 27, 4, 1);
+        addBossStageDecoration("04_purple_crystal_cluster.png", 2, 13, 2, 2);
+        addBossStageDecoration("04_purple_crystal_cluster.png", 26, 14, 2, 2);
+        addBossStageDecoration("05_void_brazier.png", 4, 4, 1, 2);
+        addBossStageDecoration("05_void_brazier.png", 25, 4, 1, 2);
+        addBossStageDecoration("05_void_brazier.png", 5, 25, 1, 2);
+        addBossStageDecoration("05_void_brazier.png", 24, 25, 1, 2);
+        addBossStageDecoration("01_broken_pillar_damaged.png", 3, 6, 2, 3);
+        addBossStageDecoration("02_stone_column.png", 25, 6, 2, 3);
+        addBossStageDecoration("03_broken_pedestal.png", 4, 23, 2, 2);
+        addBossStageDecoration("08_rubble_pile.png", 3, 25, 2, 1);
+        addBossStageDecoration("08_rubble_pile.png", 25, 23, 2, 1);
+        addBossStageDecoration("09_rune_tile.png", 12, 8, 1, 1);
+        addBossStageDecoration("10_void_crack_tile.png", 17, 9, 1, 1);
+        addBossStageDecoration("13_stone_stairs.png", 13, 24, 4, 2);
+        addBossStageDecoration("14_floor_tile_plain.png", 8, 22, 1, 1);
+        addBossStageDecoration("15_floor_tile_cracked.png", 21, 22, 1, 1);
+        addBossStageDecoration("16_floor_tile_gem.png", 15, 10, 1, 1);
+        addBossStageDecoration("17_floor_tile_rough.png", 6, 12, 1, 1);
+        addBossStageDecoration("18_floor_tile_brick.png", 23, 12, 1, 1);
+    }
+
+    private void addBossStageDecoration(String fileName, int tileX, int tileY, int tileW, int tileH) {
+        BufferedImage image = loadBossStageDecorationImage(fileName);
+        if (image == null) return;
+
+        bossStageDecorations.add(new BossStageDecoration(
+                image,
+                tileX * tileSize,
+                tileY * tileSize,
+                tileW * tileSize,
+                tileH * tileSize));
+    }
+
+    private BufferedImage loadBossStageDecorationImage(String fileName) {
+        String path = "/res/boss_stage/decor/" + fileName;
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                System.out.println("Warning: could not load boss stage decoration " + path);
+                return null;
+            }
+            return ImageIO.read(is);
+        } catch (IOException e) {
+            System.out.println("Warning: could not load boss stage decoration " + path);
+            return null;
+        }
     }
 
     @Override
@@ -243,6 +408,8 @@ public class GamePanel extends JPanel implements Runnable {
 
             // Enter the portal after all monsters are gone.
             if (monsterList.isEmpty()) {
+                updatePortalAnimation();
+
                 Rectangle doorWorldHitbox = new Rectangle(20 * tileSize, 20 * tileSize, tileSize * 2, tileSize);
                 
                 if (player.getBounds().intersects(doorWorldHitbox)) {
@@ -257,6 +424,24 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    private void updatePortalAnimation() {
+        if (portalFrames == null || portalFrames.length == 0) return;
+
+        portalFrameCounter++;
+        if (portalFrameCounter >= PORTAL_FRAME_DELAY) {
+            portalFrameCounter = 0;
+            portalFrameIndex = (portalFrameIndex + 1) % portalFrames.length;
+        }
+    }
+
+    private BufferedImage getCurrentPortalFrame() {
+        if (portalFrames == null || portalFrames.length == 0) return null;
+        if (portalFrameIndex < 0 || portalFrameIndex >= portalFrames.length) {
+            portalFrameIndex = 0;
+        }
+        return portalFrames[portalFrameIndex];
+    }
+
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -267,7 +452,14 @@ public class GamePanel extends JPanel implements Runnable {
         } else if (gameState == storyState) {
             ui.drawStoryScreen(g2);
         } else {
-            tileM.draw(g2); 
+            if (currentLevel == 10 && bossArenaImage != null) {
+                drawBossArenaBackground(g2);
+            } else {
+                tileM.draw(g2);
+            }
+            if (currentLevel == 10) {
+                drawBossStageDecorations(g2);
+            }
             
            // Portal appears after the room is cleared.
         if (monsterList.isEmpty()) {
@@ -277,12 +469,23 @@ public class GamePanel extends JPanel implements Runnable {
             int doorScreenX = doorWorldX - player.x + player.screenX;
             int doorScreenY = doorWorldY - player.y + player.screenY;
 
-            g2.setColor(Color.CYAN); 
-            g2.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
-            
-            g2.setColor(Color.WHITE);
-            String msg = (currentLevel < 10) ? "PORTAL" : "VICTORY";
-            g2.drawString(msg, doorScreenX, doorScreenY - 10);
+            BufferedImage portalFrame = getCurrentPortalFrame();
+            if (portalFrame != null) {
+                int portalDrawWidth = tileSize * 2;
+                int portalDrawHeight = tileSize * 2;
+                int portalDrawWorldX = 20 * tileSize;
+                int portalDrawWorldY = 20 * tileSize - tileSize;
+                int portalScreenX = portalDrawWorldX - player.x + player.screenX;
+                int portalScreenY = portalDrawWorldY - player.y + player.screenY;
+                g2.drawImage(portalFrame, portalScreenX, portalScreenY, portalDrawWidth, portalDrawHeight, null);
+            } else {
+                g2.setColor(Color.CYAN);
+                g2.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
+
+                g2.setColor(Color.WHITE);
+                String msg = (currentLevel < 10) ? "PORTAL" : "VICTORY";
+                g2.drawString(msg, doorScreenX, doorScreenY - 10);
+            }
         }
 
             for (int i = 0; i < itemList.size(); i++) {
@@ -339,6 +542,29 @@ public class GamePanel extends JPanel implements Runnable {
     
         g2.dispose(); 
     }
+
+    private void drawBossArenaBackground(Graphics2D g2) {
+        int worldScreenX = -player.x + player.screenX;
+        int worldScreenY = -player.y + player.screenY;
+        g2.drawImage(bossArenaImage, worldScreenX, worldScreenY,
+                maxWorldCol * tileSize, maxWorldRow * tileSize, null);
+    }
+
+    private void drawBossStageDecorations(Graphics2D g2) {
+        for (int i = 0; i < bossStageDecorations.size(); i++) {
+            BossStageDecoration decoration = bossStageDecorations.get(i);
+            drawWorldDecoration(g2, decoration.image, decoration.worldX, decoration.worldY,
+                    decoration.drawWidth, decoration.drawHeight);
+        }
+    }
+
+    private void drawWorldDecoration(Graphics2D g2, BufferedImage image, int worldX, int worldY,
+                                     int drawWidth, int drawHeight) {
+        int screenX = worldX - player.x + player.screenX;
+        int screenY = worldY - player.y + player.screenY;
+        g2.drawImage(image, screenX, screenY, drawWidth, drawHeight, null);
+    }
+
     public void spawnMonsters(int level) {
         // Level 10 only spawns the final boss.
         if (level == 10) {
@@ -576,7 +802,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void startRunAfterIntro() {
         gameState = playState;
-        currentLevel = 10;
+        currentLevel = 1;
         player.setDefaultValues();
         particleList.clear();
         player.setupClass(pendingStoryClassType);
@@ -787,8 +1013,13 @@ public class GamePanel extends JPanel implements Runnable {
 
         // No auto-heal between levels; hearts are the healing source.
 
-        player.x = tileSize * 15; 
-        player.y = tileSize * 15;
+        if (level == 10) {
+            player.x = (maxWorldCol / 2) * tileSize;
+            player.y = (maxWorldRow - 4) * tileSize;
+        } else {
+            player.x = tileSize * 15;
+            player.y = tileSize * 15;
+        }
         player.isMeleeAttacking = false; 
         player.invincible = true;
         player.invincibleCounter = 0;
