@@ -7,6 +7,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 
 import javax.imageio.ImageIO;
 
@@ -26,6 +27,49 @@ public class Monster extends Entity {
     public int escapeDirX = 0;
     public int escapeDirY = 0;
     public BossState currentState;
+
+    private static final int BOSS_SHEET_COLUMNS = 8;
+    private static final int BOSS_SHEET_ROWS = 4;
+    private static final int BOSS_DRAW_SCALE_TILES = 3;
+    private static final int BOSS_IDLE_FRAME_DELAY = 12;
+    private static final int BOSS_ATTACK_FRAME_DELAY = 7;
+    private static final int BOSS_PHASE_FRAME_DELAY = 9;
+    private static final int BOSS_ATTACK_ANIMATION_TICKS = 30;
+    private static final int BOSS_PHASE_ANIMATION_TICKS = 60;
+    private static final int BOSS_DEATH_SEQUENCE_TICKS = 105;
+    private static final int BOSS_GLOBAL_CAST_COOLDOWN = 24;
+    private static final int BOSS_SHADOW_BOLT_COOLDOWN = 70;
+    private static final int BOSS_RIFT_SPREAD_COOLDOWN = 150;
+    private static final int BOSS_ABYSS_BARRAGE_COOLDOWN = 58;
+    private static final int BOSS_RIFT_SUMMON_COOLDOWN = 210;
+    private static final int BOSS_MAX_SUMMONED_MINIONS = 3;
+    private static final int BOSS_ANIM_IDLE = 0;
+    private static final int BOSS_ANIM_ATTACK = 1;
+    private static final int BOSS_ANIM_PHASE = 2;
+    private static final int BOSS_ANIM_PHASE2_IDLE = 3;
+    private static final int BOSS_ANIM_PHASE2_ATTACK = 4;
+    private static final int BOSS_ANIM_DEATH = 5;
+    private static final int[] BOSS_PHASE1_IDLE_SEQUENCE = {0, 1, 2, 1};
+    private static final int[] BOSS_PHASE1_ATTACK_SEQUENCE = {0, 1, 2, 3};
+    private static final int[] BOSS_PHASE_TRANSITION_SEQUENCE = {0, 1, 2, 3, 4};
+    private static final int[] BOSS_PHASE2_IDLE_SEQUENCE = {0, 1, 2, 3, 2, 1};
+    private static final int[] BOSS_PHASE2_ATTACK_SEQUENCE = {2, 3, 4, 5, 4, 3};
+    private static final int[] BOSS_DEATH_SEQUENCE = {4, 5, 6, 7, 6, 5};
+    private BufferedImage[][] bossFrames;
+    private int bossFrameWidth;
+    private int bossFrameHeight;
+    private int bossCastAnimationCounter = 0;
+    private int bossPhaseAnimationCounter = 0;
+    private int bossAnimationState = BOSS_ANIM_IDLE;
+    private int bossAnimationFrameIndex = 0;
+    private boolean bossPhaseAnimationStarted = false;
+    private int bossShadowBoltCooldown = 35;
+    private int bossRiftSpreadCooldown = 100;
+    private int bossAbyssBarrageCooldown = 45;
+    private int bossRiftSummonCooldown = 140;
+    private int bossBarrageOffsetStep = 0;
+    private boolean bossDying = false;
+    private int bossDeathTimer = 0;
     
 
     public interface BossState {
@@ -74,13 +118,44 @@ public class Monster extends Entity {
             else if (type == 3) {
                 image1 = ImageIO.read(getClass().getResourceAsStream("/res/boss/boss1.png"));
                 image2 = ImageIO.read(getClass().getResourceAsStream("/res/boss/boss2.png"));
+                loadDarkConquerorSheet();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
+    private void loadDarkConquerorSheet() {
+        try (InputStream is = getClass().getResourceAsStream("/res/boss/dark_conqueror_sheet.png")) {
+            if (is == null) return;
+
+            BufferedImage bossSheet = ImageIO.read(is);
+            if (bossSheet == null) return;
+
+            bossFrameWidth = bossSheet.getWidth() / BOSS_SHEET_COLUMNS;
+            bossFrameHeight = bossSheet.getHeight() / BOSS_SHEET_ROWS;
+            if (bossFrameWidth <= 0 || bossFrameHeight <= 0) return;
+
+            bossFrames = new BufferedImage[BOSS_SHEET_ROWS][BOSS_SHEET_COLUMNS];
+            for (int row = 0; row < BOSS_SHEET_ROWS; row++) {
+                for (int col = 0; col < BOSS_SHEET_COLUMNS; col++) {
+                    bossFrames[row][col] = bossSheet.getSubimage(
+                            col * bossFrameWidth,
+                            row * bossFrameHeight,
+                            bossFrameWidth,
+                            bossFrameHeight);
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            bossFrames = null;
+        }
+    }
+
     public void update() {
+        if (bossDying) {
+            updateBossDeathSequence();
+            return;
+        }
         
         // Hit stun from melee attacks.
         if (stunCounter > 0) {
@@ -154,14 +229,16 @@ public class Monster extends Entity {
                 if (collisionOn) y = oldY;
             }
         }     
-        spriteCounter++;
-        if (spriteCounter > 15) {
-            if (spriteNum == 1) {
-                spriteNum = 2;
-            } else if (spriteNum == 2) {
-                spriteNum = 1;
+        if (type != 3 || bossFrames == null) {
+            spriteCounter++;
+            if (spriteCounter > 15) {
+                if (spriteNum == 1) {
+                    spriteNum = 2;
+                } else if (spriteNum == 2) {
+                    spriteNum = 1;
+                }
+                spriteCounter = 0;
             }
-            spriteCounter = 0; 
         }
 
         // Ranged monsters shoot at the player.
@@ -187,46 +264,179 @@ public class Monster extends Entity {
             boolean isEnraged = (this.hp <= this.maxHp / 2);
 
             this.speed = gp.difficulty.getBossSpeed(isEnraged);
+            updateBossSkillCooldowns();
+
+            if (isEnraged && bossPhaseAnimationStarted == false) {
+                bossPhaseAnimationStarted = true;
+                bossPhaseAnimationCounter = BOSS_PHASE_ANIMATION_TICKS;
+                switchBossAnimation(BOSS_ANIM_PHASE);
+            }
 
             if (shootCooldown == 0) {
-                int startX = x + gp.tileSize;
-                int startY = y + gp.tileSize;
-                
                 if (isEnraged) {
-                    // Phase 2 can summon minions.
-                    if (Math.random() < gp.difficulty.applyBossMinionChance(0.50)) {
-                        Monster minion = new Monster(gp, x + gp.tileSize, y + gp.tileSize, 1);
-                        gp.difficulty.applyMonsterStats(minion);
-                        if (minion.isElite == false) minion.hp = minion.maxHp;
-                        gp.monsterList.add(minion);
-                    }
-                    
-                    // Phase 2 fires in 12 directions.
-                    for(int i = 0; i < 12; i++) {
-                        double angle = Math.PI / 6 * i;
-                        int tX = (int) (startX + Math.cos(angle) * 100);
-                        int tY = (int) (startY + Math.sin(angle) * 100);
-                        
-                        Bullet b = new Bullet(gp, startX, startY, tX, tY, false, 3);
-                        gp.bulletList.add(b);
-                    }
-                    shootCooldown = gp.difficulty.getBossShootCooldown(true);
-                    
+                    usePhaseTwoBossSkill();
                 } else {
-                    // Phase 1 uses a smaller 8-way shot.
-                    for(int i = 0; i < 8; i++) {
-                        double angle = Math.PI / 4 * i; 
-                        int tX = (int) (startX + Math.cos(angle) * 100);
-                        int tY = (int) (startY + Math.sin(angle) * 100);
-                        
-                        Bullet b = new Bullet(gp, startX, startY, tX, tY, false, 1);
-                        gp.bulletList.add(b);
-                    }
-                    shootCooldown = gp.difficulty.getBossShootCooldown(false);
+                    usePhaseOneBossSkill();
                 }
             }
+            if (bossCastAnimationCounter > 0) bossCastAnimationCounter--;
+            if (bossPhaseAnimationCounter > 0) bossPhaseAnimationCounter--;
+            updateBossAnimation();
             if (shootCooldown > 0) shootCooldown--;
         }
+    }
+
+    private void updateBossSkillCooldowns() {
+        if (bossShadowBoltCooldown > 0) bossShadowBoltCooldown--;
+        if (bossRiftSpreadCooldown > 0) bossRiftSpreadCooldown--;
+        if (bossAbyssBarrageCooldown > 0) bossAbyssBarrageCooldown--;
+        if (bossRiftSummonCooldown > 0) bossRiftSummonCooldown--;
+    }
+
+    private void usePhaseOneBossSkill() {
+        if (bossRiftSpreadCooldown == 0) {
+            castRiftSpread();
+            bossRiftSpreadCooldown = BOSS_RIFT_SPREAD_COOLDOWN;
+            shootCooldown = BOSS_GLOBAL_CAST_COOLDOWN;
+        } else if (bossShadowBoltCooldown == 0) {
+            castShadowBolt();
+            bossShadowBoltCooldown = BOSS_SHADOW_BOLT_COOLDOWN;
+            shootCooldown = BOSS_GLOBAL_CAST_COOLDOWN;
+        }
+    }
+
+    private void usePhaseTwoBossSkill() {
+        if (bossAbyssBarrageCooldown == 0) {
+            castAbyssBarrage();
+            bossAbyssBarrageCooldown = BOSS_ABYSS_BARRAGE_COOLDOWN;
+            shootCooldown = BOSS_GLOBAL_CAST_COOLDOWN;
+        } else if (bossRiftSummonCooldown == 0 && countBossMinions() < BOSS_MAX_SUMMONED_MINIONS) {
+            castRiftSummon();
+            bossRiftSummonCooldown = BOSS_RIFT_SUMMON_COOLDOWN;
+            shootCooldown = BOSS_GLOBAL_CAST_COOLDOWN;
+        } else if (bossShadowBoltCooldown == 0) {
+            castShadowBolt();
+            bossShadowBoltCooldown = BOSS_SHADOW_BOLT_COOLDOWN - 15;
+            shootCooldown = BOSS_GLOBAL_CAST_COOLDOWN;
+        }
+    }
+
+    private void castShadowBolt() {
+        startBossCastAnimation();
+
+        int bulletCount = 1 + (int)(Math.random() * 3);
+        double baseAngle = getAngleToPlayer();
+        double spread = 0.14;
+
+        for (int i = 0; i < bulletCount; i++) {
+            double offset = (i - (bulletCount - 1) / 2.0) * spread;
+            fireBossBullet(baseAngle + offset, 1);
+        }
+    }
+
+    private void castRiftSpread() {
+        startBossCastAnimation();
+
+        double baseAngle = getAngleToPlayer();
+        for (int i = 0; i < 5; i++) {
+            double offset = (i - 2) * 0.22;
+            fireBossBullet(baseAngle + offset, 1);
+        }
+    }
+
+    private void castAbyssBarrage() {
+        startBossCastAnimation();
+
+        int bulletCount = 10;
+        double step = Math.PI * 2 / bulletCount;
+        double offset = (bossBarrageOffsetStep % 2) * step / 2.0;
+
+        for (int i = 0; i < bulletCount; i++) {
+            fireBossBullet(offset + step * i, 1);
+        }
+        bossBarrageOffsetStep++;
+    }
+
+    private void castRiftSummon() {
+        startBossCastAnimation();
+
+        int availableSlots = BOSS_MAX_SUMMONED_MINIONS - countBossMinions();
+        int summonCount = Math.min(2, availableSlots);
+        int[][] offsets = {
+                {-gp.tileSize, gp.tileSize},
+                {gp.tileSize * 2, gp.tileSize},
+                {gp.tileSize / 2, gp.tileSize * 2}
+        };
+
+        for (int i = 0; i < summonCount; i++) {
+            Monster minion = new Monster(gp, x + offsets[i][0], y + offsets[i][1], 1);
+            minion.maxHp = Math.max(1, minion.maxHp - 1);
+            minion.hp = minion.maxHp;
+            minion.speed = Math.max(1, minion.speed - 1);
+            gp.monsterList.add(minion);
+        }
+    }
+
+    private int countBossMinions() {
+        int count = 0;
+        for (int i = 0; i < gp.monsterList.size(); i++) {
+            Monster monster = gp.monsterList.get(i);
+            if (monster != null && monster.type != 3) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private double getAngleToPlayer() {
+        int startX = x + gp.tileSize;
+        int startY = y + gp.tileSize;
+        int targetX = gp.player.x + gp.tileSize / 2;
+        int targetY = gp.player.y + gp.tileSize / 2;
+        return Math.atan2(targetY - startY, targetX - startX);
+    }
+
+    private void fireBossBullet(double angle, int damage) {
+        int startX = x + gp.tileSize;
+        int startY = y + gp.tileSize;
+        int targetX = (int)(startX + Math.cos(angle) * 100);
+        int targetY = (int)(startY + Math.sin(angle) * 100);
+        gp.bulletList.add(new Bullet(gp, startX, startY, targetX, targetY, false, damage));
+    }
+
+    private void startBossCastAnimation() {
+        bossCastAnimationCounter = BOSS_ATTACK_ANIMATION_TICKS;
+        if (bossPhaseAnimationCounter == 0) switchBossAnimation(BOSS_ANIM_ATTACK);
+    }
+
+    public void startBossDeathSequence() {
+        if (type != 3 || bossDying) return;
+
+        bossDying = true;
+        bossDeathTimer = 0;
+        bossCastAnimationCounter = 0;
+        bossPhaseAnimationCounter = 0;
+        shootCooldown = 0;
+        switchBossAnimation(BOSS_ANIM_DEATH);
+    }
+
+    public boolean isBossDying() {
+        return bossDying;
+    }
+
+    public boolean isBossDeathFinished() {
+        return bossDying && bossDeathTimer >= BOSS_DEATH_SEQUENCE_TICKS;
+    }
+
+    public boolean shouldSpawnBossDeathParticles() {
+        return bossDying && bossDeathTimer > 0 && bossDeathTimer < BOSS_DEATH_SEQUENCE_TICKS && bossDeathTimer % 7 == 0;
+    }
+
+    private void updateBossDeathSequence() {
+        bossDeathTimer++;
+        if (bossDeathTimer == BOSS_DEATH_SEQUENCE_TICKS) {
+        }
+        updateBossAnimation();
     }
 
     public void draw(Graphics2D g2) {
@@ -234,18 +444,26 @@ public class Monster extends Entity {
         int screenY = y - gp.player.y + gp.player.screenY;
 
         BufferedImage imageToDraw = null;
-        if (spriteNum == 1) imageToDraw = image1;
-        if (spriteNum == 2) imageToDraw = image2;
+        if (type == 3 && bossFrames != null) {
+            imageToDraw = getBossAnimationFrame();
+        } else {
+            if (spriteNum == 1) imageToDraw = image1;
+            if (spriteNum == 2) imageToDraw = image2;
+        }
 
         int size = (type == 3) ? gp.tileSize * 2 : gp.tileSize;
+        int visualSize = (type == 3 && bossFrames != null) ? gp.tileSize * BOSS_DRAW_SCALE_TILES : size;
 
-        int drawX = screenX;
-        int drawY = screenY;
-        int drawWidth = size;
-        int drawHeight = size;
+        int drawX = screenX - (visualSize - size) / 2;
+        int drawY = screenY - (visualSize - size) / 2;
+        int drawWidth = visualSize;
+        int drawHeight = visualSize;
 
         if (lookLeft == true) {
             drawX = screenX + drawWidth;
+            if (type == 3 && bossFrames != null) {
+                drawX = screenX + size + (visualSize - size) / 2;
+            }
             drawWidth = -drawWidth; 
         }
 
@@ -269,6 +487,76 @@ public class Monster extends Entity {
                 g2.fillRect(screenX, screenY, size, size); 
             }
         }
+    }
+
+    private BufferedImage getBossAnimationFrame() {
+        int row = getBossAnimationRow();
+        int[] sequence = getBossAnimationSequence();
+        int sequenceIndex = Math.max(0, Math.min(sequence.length - 1, bossAnimationFrameIndex));
+        int col = sequence[sequenceIndex];
+        return bossFrames[row][col];
+    }
+
+    private void updateBossAnimation() {
+        if (bossFrames == null) return;
+
+        int nextState = BOSS_ANIM_IDLE;
+        if (bossDying) {
+            nextState = BOSS_ANIM_DEATH;
+        } else if (bossPhaseAnimationCounter > 0) {
+            nextState = BOSS_ANIM_PHASE;
+        } else if (bossPhaseAnimationStarted && bossCastAnimationCounter > 0) {
+            nextState = BOSS_ANIM_PHASE2_ATTACK;
+        } else if (bossPhaseAnimationStarted) {
+            nextState = BOSS_ANIM_PHASE2_IDLE;
+        } else if (bossCastAnimationCounter > 0) {
+            nextState = BOSS_ANIM_ATTACK;
+        }
+        switchBossAnimation(nextState);
+
+        spriteCounter++;
+        if (spriteCounter > getBossFrameDelay()) {
+            bossAnimationFrameIndex++;
+            if (bossAnimationFrameIndex >= getBossAnimationSequence().length) {
+                bossAnimationFrameIndex = 0;
+            }
+            spriteCounter = 0;
+        }
+    }
+
+    private void switchBossAnimation(int nextState) {
+        if (bossFrames == null || bossAnimationState == nextState) return;
+
+        bossAnimationState = nextState;
+        bossAnimationFrameIndex = 0;
+        spriteCounter = 0;
+    }
+
+    private int getBossAnimationRow() {
+        if (bossAnimationState == BOSS_ANIM_DEATH) return 3;
+        if (bossAnimationState == BOSS_ANIM_PHASE) return 3;
+        if (bossAnimationState == BOSS_ANIM_PHASE2_IDLE) return 3;
+        if (bossAnimationState == BOSS_ANIM_PHASE2_ATTACK) return 3;
+        if (bossAnimationState == BOSS_ANIM_ATTACK) return 2;
+        return 0;
+    }
+
+    private int getBossFrameDelay() {
+        if (bossAnimationState == BOSS_ANIM_DEATH) return BOSS_PHASE_FRAME_DELAY;
+        if (bossAnimationState == BOSS_ANIM_PHASE) return BOSS_PHASE_FRAME_DELAY;
+        if (bossAnimationState == BOSS_ANIM_PHASE2_ATTACK) return BOSS_ATTACK_FRAME_DELAY;
+        if (bossAnimationState == BOSS_ANIM_PHASE2_IDLE) return BOSS_IDLE_FRAME_DELAY;
+        if (bossAnimationState == BOSS_ANIM_ATTACK) return BOSS_ATTACK_FRAME_DELAY;
+        return BOSS_IDLE_FRAME_DELAY;
+    }
+
+    private int[] getBossAnimationSequence() {
+        if (bossAnimationState == BOSS_ANIM_DEATH) return BOSS_DEATH_SEQUENCE;
+        if (bossAnimationState == BOSS_ANIM_PHASE) return BOSS_PHASE_TRANSITION_SEQUENCE;
+        if (bossAnimationState == BOSS_ANIM_PHASE2_ATTACK) return BOSS_PHASE2_ATTACK_SEQUENCE;
+        if (bossAnimationState == BOSS_ANIM_PHASE2_IDLE) return BOSS_PHASE2_IDLE_SEQUENCE;
+        if (bossAnimationState == BOSS_ANIM_ATTACK) return BOSS_PHASE1_ATTACK_SEQUENCE;
+        return BOSS_PHASE1_IDLE_SEQUENCE;
     }
 
     // Hitbox uses world coordinates for bullet checks.

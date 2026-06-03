@@ -288,6 +288,7 @@ public class Player extends Entity {
                     
                     for (int i = 0; i < gp.monsterList.size(); i++) {
                         Monster m = gp.monsterList.get(i);
+                        if (m.hp <= 0 || m.isBossDying()) continue;
                         
                         Rectangle mBounds = m.getBounds();
                         int mCenterX = mBounds.x + (mBounds.width / 2);
@@ -319,13 +320,6 @@ public class Player extends Entity {
                             
                             // Short hit stun.
                             m.stunCounter = 15;
-
-                            if (m.hp <= 0) {
-                                gp.playSE(2); 
-                                gp.handleMonsterDefeated(m);
-                                gp.monsterList.remove(i);
-                                i--; 
-                            }
                         }
                     }
                     shootCooldown = Math.max(20, attackCooldown);
@@ -359,15 +353,11 @@ public class Player extends Entity {
                 
                 for (int i = 0; i < gp.monsterList.size(); i++) {
                     Monster m = gp.monsterList.get(i);
+                    if (m.hp <= 0 || m.isBossDying()) continue;
+
                     if (meleeHitbox.intersects(m.getBounds())) {
                         m.hp -= 15; 
                         gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, "-15", Color.YELLOW));
-                        if (m.hp <= 0) {
-                            gp.playSE(2); 
-                            gp.handleMonsterDefeated(m);
-                            gp.monsterList.remove(i);
-                            i--;
-                        }
                     }
                 }
             }

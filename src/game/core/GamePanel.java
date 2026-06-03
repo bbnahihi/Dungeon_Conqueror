@@ -140,8 +140,11 @@ public class GamePanel extends JPanel implements Runnable {
             for (int i = 0; i < monsterList.size(); i++) {
                 Monster m = monsterList.get(i);
                 m.update();
+                if (m.shouldSpawnBossDeathParticles()) {
+                    generateBossDeathPulseParticles(m);
+                }
 
-                if (m.getBounds().intersects(player.getBounds()) && player.invincible == false) {
+                if (m.isBossDying() == false && m.getBounds().intersects(player.getBounds()) && player.invincible == false) {
                     player.hp--; 
                     statsTracker.recordDamageTaken(1);
                     player.invincible = true; 
@@ -190,7 +193,28 @@ public class GamePanel extends JPanel implements Runnable {
             // Remove monsters after their HP reaches zero.
             for (int i = 0; i < monsterList.size(); i++) {
                 Monster defeatedMonster = monsterList.get(i);
+
                 if (defeatedMonster.hp <= 0) {
+                    if (defeatedMonster.type == 3) {
+                        if (defeatedMonster.isBossDying() == false) {
+                            defeatedMonster.startBossDeathSequence();
+                            generateBossDeathParticles(defeatedMonster);
+                            continue;
+                        }
+
+                        if (defeatedMonster.isBossDeathFinished() == false) {
+                            continue;
+                        }
+
+                        handleMonsterDefeated(defeatedMonster);
+                        monsterList.remove(i);
+                        i--;
+                        continue;
+                    }
+
+                    if (defeatedMonster.type == 3) {
+                    }
+
                     handleMonsterDefeated(defeatedMonster);
                     monsterList.remove(i);
                     i--;
@@ -552,7 +576,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void startRunAfterIntro() {
         gameState = playState;
-        currentLevel = 1;
+        currentLevel = 10;
         player.setDefaultValues();
         particleList.clear();
         player.setupClass(pendingStoryClassType);
@@ -689,6 +713,52 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    public void generateBossDeathParticles(Monster boss) {
+        int centerX = boss.x + tileSize;
+        int centerY = boss.y + tileSize;
+        Color[] colors = {
+                new Color(160, 40, 220),
+                new Color(220, 40, 210),
+                new Color(95, 30, 180),
+                new Color(255, 90, 230)
+        };
+
+        for (int k = 0; k < 90; k++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 1.5 + Math.random() * 6.0;
+            double xVel = Math.cos(angle) * speed;
+            double yVel = Math.sin(angle) * speed;
+            int size = 4 + (int)(Math.random() * 7);
+            int life = 55 + (int)(Math.random() * 45);
+            Color color = colors[(int)(Math.random() * colors.length)];
+
+            particleList.add(new Particle(this, centerX, centerY, color, size, xVel, yVel, life));
+        }
+    }
+
+    public void generateBossDeathPulseParticles(Monster boss) {
+        int centerX = boss.x + tileSize;
+        int centerY = boss.y + tileSize;
+        Color[] colors = {
+                new Color(90, 20, 120),
+                new Color(150, 30, 190),
+                new Color(210, 45, 210),
+                new Color(35, 20, 55)
+        };
+
+        for (int k = 0; k < 16; k++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 0.8 + Math.random() * 3.8;
+            double xVel = Math.cos(angle) * speed;
+            double yVel = Math.sin(angle) * speed;
+            int size = 4 + (int)(Math.random() * 5);
+            int life = 35 + (int)(Math.random() * 28);
+            Color color = colors[(int)(Math.random() * colors.length)];
+
+            particleList.add(new Particle(this, centerX, centerY, color, size, xVel, yVel, life));
+        }
+    }
+
     // Called when starting a new level or entering the portal.
     public void transitionToNewMap(int level) {
         if (level == 1) {
@@ -733,8 +803,12 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void handleMonsterDefeated(Monster defeatedMonster) {
+        if (defeatedMonster.type == 3) {
+        }
         statsTracker.recordEnemyKilled();
         addScore(getMonsterScore(defeatedMonster));
+        if (defeatedMonster.type == 3) return;
+
         generateParticles(defeatedMonster.x, defeatedMonster.y);
         spawnItemDrop(defeatedMonster);
     }
@@ -742,13 +816,7 @@ public class GamePanel extends JPanel implements Runnable {
     public void spawnItemDrop(Monster defeatedMonster) {
         if (defeatedMonster == null) return;
 
-        // Boss drops a small fixed reward set.
         if (defeatedMonster.type == 3) {
-            int[] bossDrops = { Item.TYPE_HEART, Item.TYPE_ENERGY, Item.TYPE_COIN };
-            for (int i = 0; i < bossDrops.length; i++) {
-                int offsetX = (i - 1) * 32;
-                itemList.add(new Item(this, defeatedMonster.x + tileSize - 14 + offsetX, defeatedMonster.y + tileSize - 14, bossDrops[i]));
-            }
             return;
         }
 
