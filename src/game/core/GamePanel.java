@@ -76,7 +76,13 @@ public class GamePanel extends JPanel implements Runnable {
     private int portalFrameCounter = 0;
     private static final int PORTAL_FRAME_COUNT = 8;
     private static final int PORTAL_FRAME_DELAY = 6;
+    private static final boolean DEBUG_BOSS_COVER_HITBOX = false;
     private ArrayList<BossStageDecoration> bossStageDecorations = new ArrayList<>();
+    private ArrayList<BossArenaCover> bossArenaCovers = new ArrayList<>();
+    private BufferedImage brokenPedestalCoverImage;
+    private BufferedImage rubblePileCoverImage;
+    private BufferedImage purpleCrystalCoverImage;
+    private BufferedImage brokenPillarCoverImage;
 
     public ArrayList<Particle> particleList = new ArrayList<>();
     public Sound music = new Sound();
@@ -114,6 +120,8 @@ public class GamePanel extends JPanel implements Runnable {
         loadBossArenaImage();
         loadPortalImage();
         loadBossStageDecorations();
+        loadBossArenaCoverImages();
+        createBossArenaCovers();
         loadBestScore();
 
         playMusic(6);
@@ -132,6 +140,24 @@ public class GamePanel extends JPanel implements Runnable {
             this.worldY = worldY;
             this.drawWidth = drawWidth;
             this.drawHeight = drawHeight;
+        }
+    }
+
+    private static class BossArenaCover {
+        BufferedImage image;
+        int worldX;
+        int worldY;
+        int drawWidth;
+        int drawHeight;
+        Rectangle hitbox;
+
+        BossArenaCover(BufferedImage image, int worldX, int worldY, int drawWidth, int drawHeight, Rectangle hitbox) {
+            this.image = image;
+            this.worldX = worldX;
+            this.worldY = worldY;
+            this.drawWidth = drawWidth;
+            this.drawHeight = drawHeight;
+            this.hitbox = hitbox;
         }
     }
 
@@ -223,7 +249,6 @@ public class GamePanel extends JPanel implements Runnable {
         bossStageDecorations.clear();
 
         addBossStageDecoration("12_void_portal_gate.png", 13, 3, 4, 4);
-        addBossStageDecoration("11_ritual_altar_platform.png", 11, 5, 7, 4);
         addBossStageDecoration("06_hanging_banner.png", 5, 2, 2, 3);
         addBossStageDecoration("06_hanging_banner.png", 23, 2, 2, 3);
         addBossStageDecoration("07_chain_fence.png", 9, 3, 3, 1);
@@ -240,14 +265,6 @@ public class GamePanel extends JPanel implements Runnable {
         addBossStageDecoration("03_broken_pedestal.png", 4, 23, 2, 2);
         addBossStageDecoration("08_rubble_pile.png", 3, 25, 2, 1);
         addBossStageDecoration("08_rubble_pile.png", 25, 23, 2, 1);
-        addBossStageDecoration("09_rune_tile.png", 12, 8, 1, 1);
-        addBossStageDecoration("10_void_crack_tile.png", 17, 9, 1, 1);
-        addBossStageDecoration("13_stone_stairs.png", 13, 24, 4, 2);
-        addBossStageDecoration("14_floor_tile_plain.png", 8, 22, 1, 1);
-        addBossStageDecoration("15_floor_tile_cracked.png", 21, 22, 1, 1);
-        addBossStageDecoration("16_floor_tile_gem.png", 15, 10, 1, 1);
-        addBossStageDecoration("17_floor_tile_rough.png", 6, 12, 1, 1);
-        addBossStageDecoration("18_floor_tile_brick.png", 23, 12, 1, 1);
     }
 
     private void addBossStageDecoration(String fileName, int tileX, int tileY, int tileW, int tileH) {
@@ -274,6 +291,49 @@ public class GamePanel extends JPanel implements Runnable {
             System.out.println("Warning: could not load boss stage decoration " + path);
             return null;
         }
+    }
+
+    private void loadBossArenaCoverImages() {
+        brokenPedestalCoverImage = loadBossArenaCoverImage("03_broken_pedestal.png");
+        rubblePileCoverImage = loadBossArenaCoverImage("08_rubble_pile.png");
+        purpleCrystalCoverImage = loadBossArenaCoverImage("04_purple_crystal_cluster.png");
+        brokenPillarCoverImage = loadBossArenaCoverImage("01_broken_pillar_damaged.png");
+    }
+
+    private BufferedImage loadBossArenaCoverImage(String fileName) {
+        String path = "/res/boss_stage/cover/" + fileName;
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                System.out.println("Warning: could not load boss arena cover " + path);
+                return null;
+            }
+            return ImageIO.read(is);
+        } catch (IOException e) {
+            System.out.println("Warning: could not load boss arena cover " + path);
+            return null;
+        }
+    }
+
+    private void createBossArenaCovers() {
+        bossArenaCovers.clear();
+
+        addBossArenaCover(brokenPedestalCoverImage, 7, 13, 96, 64, 4, 16, 88, 44);
+        addBossArenaCover(brokenPedestalCoverImage, 21, 13, 96, 64, 4, 16, 88, 44);
+        addBossArenaCover(rubblePileCoverImage, 8, 21, 80, 56, 4, 12, 72, 40);
+        addBossArenaCover(rubblePileCoverImage, 20, 21, 80, 56, 4, 12, 72, 40);
+        addBossArenaCover(purpleCrystalCoverImage, 4, 17, 72, 80, 8, 28, 56, 48);
+        addBossArenaCover(purpleCrystalCoverImage, 25, 17, 72, 80, 8, 28, 56, 48);
+    }
+
+    private void addBossArenaCover(BufferedImage image, int tileX, int tileY, int drawWidth, int drawHeight,
+                                   int hitboxOffsetX, int hitboxOffsetY, int hitboxWidth, int hitboxHeight) {
+        if (image == null) return;
+
+        int worldX = tileX * tileSize;
+        int worldY = tileY * tileSize;
+        Rectangle hitbox = new Rectangle(worldX + hitboxOffsetX, worldY + hitboxOffsetY,
+                hitboxWidth, hitboxHeight);
+        bossArenaCovers.add(new BossArenaCover(image, worldX, worldY, drawWidth, drawHeight, hitbox));
     }
 
     @Override
@@ -459,6 +519,7 @@ public class GamePanel extends JPanel implements Runnable {
             }
             if (currentLevel == 10) {
                 drawBossStageDecorations(g2);
+                drawBossArenaCovers(g2);
             }
             
            // Portal appears after the room is cleared.
@@ -514,6 +575,8 @@ public class GamePanel extends JPanel implements Runnable {
             for (int i = 0; i < bulletList.size(); i++) {
                 bulletList.get(i).draw(g2);
             }
+
+            drawBossCoverDebugHitboxes(g2);
             
             for (int i = 0; i < floatingTextList.size(); i++) {
                 if (floatingTextList.get(i) != null) {
@@ -556,6 +619,70 @@ public class GamePanel extends JPanel implements Runnable {
             drawWorldDecoration(g2, decoration.image, decoration.worldX, decoration.worldY,
                     decoration.drawWidth, decoration.drawHeight);
         }
+    }
+
+    private void drawBossArenaCovers(Graphics2D g2) {
+        if (isLevel10BossArenaCoverActive() == false) return;
+
+        for (int i = 0; i < bossArenaCovers.size(); i++) {
+            BossArenaCover cover = bossArenaCovers.get(i);
+            drawWorldDecoration(g2, cover.image, cover.worldX, cover.worldY, cover.drawWidth, cover.drawHeight);
+        }
+    }
+
+    public boolean collidesWithBossArenaCover(Rectangle worldHitbox) {
+        if (isLevel10BossArenaCoverActive() == false || worldHitbox == null) return false;
+
+        for (int i = 0; i < bossArenaCovers.size(); i++) {
+            BossArenaCover cover = bossArenaCovers.get(i);
+            if (cover.hitbox != null && worldHitbox.intersects(cover.hitbox)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isLevel10BossArenaCoverActive() {
+        return currentLevel == 10 && bossArenaCovers.isEmpty() == false;
+    }
+
+    private void drawBossCoverDebugHitboxes(Graphics2D g2) {
+        if (DEBUG_BOSS_COVER_HITBOX == false || currentLevel != 10) return;
+
+        g2.setColor(Color.RED);
+        for (int i = 0; i < bossArenaCovers.size(); i++) {
+            BossArenaCover cover = bossArenaCovers.get(i);
+            drawWorldRect(g2, cover.hitbox);
+        }
+
+        g2.setColor(Color.GREEN);
+        drawEntitySolidArea(g2, player);
+
+        g2.setColor(Color.ORANGE);
+        for (int i = 0; i < monsterList.size(); i++) {
+            drawEntitySolidArea(g2, monsterList.get(i));
+        }
+
+        g2.setColor(Color.CYAN);
+        for (int i = 0; i < bulletList.size(); i++) {
+            drawWorldRect(g2, bulletList.get(i).getBounds());
+        }
+    }
+
+    private void drawEntitySolidArea(Graphics2D g2, game.entity.Entity entity) {
+        if (entity == null || entity.solidArea == null) return;
+
+        Rectangle worldHitbox = new Rectangle(entity.x + entity.solidArea.x, entity.y + entity.solidArea.y,
+                entity.solidArea.width, entity.solidArea.height);
+        drawWorldRect(g2, worldHitbox);
+    }
+
+    private void drawWorldRect(Graphics2D g2, Rectangle worldRect) {
+        if (worldRect == null) return;
+
+        int screenX = worldRect.x - player.x + player.screenX;
+        int screenY = worldRect.y - player.y + player.screenY;
+        g2.drawRect(screenX, screenY, worldRect.width, worldRect.height);
     }
 
     private void drawWorldDecoration(Graphics2D g2, BufferedImage image, int worldX, int worldY,

@@ -42,6 +42,12 @@ public class CollisionChecker {
             gp.tileM.isCollisionTile(tileNum3) || gp.tileM.isCollisionTile(tileNum4)) {
             entity.collisionOn = true;
         }
+
+        Rectangle worldHitbox = new Rectangle(entity.x + entity.solidArea.x, entity.y + entity.solidArea.y,
+                entity.solidArea.width, entity.solidArea.height);
+        if (gp.collidesWithBossArenaCover(worldHitbox)) {
+            entity.collisionOn = true;
+        }
     }
 
     public boolean checkWallCollision(int targetX, int targetY, Rectangle hitbox) {
