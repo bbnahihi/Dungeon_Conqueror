@@ -30,10 +30,6 @@ public class Bullet extends Entity {
         dx = speed * Math.cos(angle);
         dy = speed * Math.sin(angle);
         
-        // ==========================================
-        // QUAN TRỌNG: Khai báo Hitbox cho viên đạn để hệ thống Vật lý có thể quét
-        // Kích thước đạn là 15x15 pixel
-        // ==========================================
         solidArea = new Rectangle(0, 0, 15, 15);
     }
 
@@ -42,31 +38,23 @@ public class Bullet extends Entity {
     }
 
     public void update() {
-        // 1. Di chuyển viên đạn
         x += (int) dx;
         y += (int) dy;
 
-        // ==========================================
-        // 2. KIỂM TRA VA CHẠM TƯỜNG TRƯỚC TIÊN
-        // ==========================================
+        // Wall collision is checked before enemy collision.
         collisionOn = false;
-        gp.cChecker.checkTile(this); // Gửi viên đạn vào máy quét
+        gp.cChecker.checkTile(this);
         
         if (collisionOn == true) {
-            alive = false; // Đập tường -> Hủy đạn ngay lập tức
-            
-            // Tạo hiệu ứng hạt vỡ vụn khi tên cắm vào tường (nếu bạn có hàm này)
-            // gp.generateParticles(x, y); 
-            
-            return; // Dừng hàm update lại, không cần xét va chạm với quái nữa
+            alive = false;
+            return;
         }
 
-        // 3. KIỂM TRA VA CHẠM VỚI QUÁI 
+        // Player bullets damage monsters.
         if (isPlayerBullet == true) {
             for (int i = 0; i < gp.monsterList.size(); i++) {
                 Monster m = gp.monsterList.get(i);
                 
-                // ĐÃ SỬA: Bỏ kiểm tra hitTargets. Chỉ cần chạm Hitbox là tính sát thương!
                 if (m != null && this.getBounds().intersects(m.getBounds())) {
                     
                     boolean isCrit = Math.random() < 0.25; 
@@ -78,18 +66,14 @@ public class Bullet extends Entity {
                     String text = isCrit ? "CRIT -" + finalDamage : "-" + finalDamage;
                     gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, text, textColor));
                     
-                    m.stunCounter = 15; // Giữ nguyên hiệu ứng làm choáng
+                    m.stunCounter = 15;
                     
-                    // ==========================================
-                    // ĐÃ XÓA XUYÊN THẤU: Chạm 1 con quái là tự hủy đạn ngay lập tức!
-                    // ==========================================
                     alive = false; 
-                    break; // Thoát vòng lặp, mũi tên đã gãy nên không thể trúng con thứ 2
+                    break;
                 }
             }
         }
         
-        // 4. Nếu bay ra khỏi bản đồ thì tự hủy
         if (x < 0 || x > gp.maxWorldCol * gp.tileSize || y < 0 || y > gp.maxWorldRow * gp.tileSize) {
             alive = false;
         }

@@ -12,12 +12,12 @@ public class CollisionChecker {
         this.gp = gp;
     }
 
-    // Đã đổi từ (Player player) thành (Entity entity)
     public void checkTile(Entity entity) {
         if (entity.solidArea == null) {
-            return; // Khống có Hitbox thì cấm quét tường! Tránh Crash game!
+            return;
         }
-        // 1. Tìm tọa độ 4 cạnh của vùng va chạm (Hitbox) của thực thể
+
+        // Check the four corners of the entity hitbox.
         int entityLeftWorldX = entity.x + entity.solidArea.x;
         int entityRightWorldX = entity.x + entity.solidArea.x + entity.solidArea.width;
         int entityTopWorldY = entity.y + entity.solidArea.y;
@@ -28,7 +28,6 @@ public class CollisionChecker {
         int entityTopRow = entityTopWorldY / gp.tileSize;
         int entityBottomRow = entityBottomWorldY / gp.tileSize;
 
-        // Khóa giới hạn
         if (entityLeftCol < 0) entityLeftCol = 0;
         if (entityRightCol >= gp.maxWorldCol) entityRightCol = gp.maxWorldCol - 1;
         if (entityTopRow < 0) entityTopRow = 0;
@@ -39,15 +38,13 @@ public class CollisionChecker {
         int tileNum3 = gp.tileM.mapTileNum[entityLeftCol][entityBottomRow]; 
         int tileNum4 = gp.tileM.mapTileNum[entityRightCol][entityBottomRow];
 
-        // Nếu chạm tường
         if (tileNum1 == 1 || tileNum2 == 1 || tileNum3 == 1 || tileNum4 == 1) {
-            entity.collisionOn = true; // Đã đổi player thành entity
+            entity.collisionOn = true;
         }
     }
 
     public boolean checkWallCollision(int targetX, int targetY, Rectangle hitbox) {
         
-        // Lớp bảo vệ cho Hitbox đòn đánh
         if (hitbox == null) return false;
 
         int leftX = targetX + hitbox.x;
@@ -69,7 +66,7 @@ public class CollisionChecker {
         int tileNum3 = gp.tileM.mapTileNum[leftCol][bottomRow];
         int tileNum4 = gp.tileM.mapTileNum[rightCol][bottomRow];
 
-        // Lớp bảo vệ chống lỗi Null Tile
+        // Missing tiles should not crash collision checks.
         if ((gp.tileM.tile[tileNum1] != null && gp.tileM.tile[tileNum1].collision) || 
             (gp.tileM.tile[tileNum2] != null && gp.tileM.tile[tileNum2].collision) || 
             (gp.tileM.tile[tileNum3] != null && gp.tileM.tile[tileNum3].collision) || 

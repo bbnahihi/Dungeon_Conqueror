@@ -72,7 +72,7 @@ public class Item {
         }
         else if (type == TYPE_SHIELD) {
             gp.player.invincible = true;
-            gp.player.invincibleCounter = -60; // Khoảng 2 giây bất tử ở 60 FPS
+            gp.player.invincibleCounter = -60; // About 2 seconds at 60 FPS.
             gp.floatingTextList.add(new FloatingText(gp, x, y, "SHIELD", Color.GREEN));
         }
     }

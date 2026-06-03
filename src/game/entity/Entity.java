@@ -9,11 +9,9 @@ public class Entity {
     public Rectangle solidArea; 
     public boolean collisionOn = false;
     public boolean isGhost = false;
-    // --- SỬA LẠI KHU VỰC HÌNH ẢNH ---
     public BufferedImage image;
-    public BufferedImage image1, image2; // Lưu 2 trạng thái ảnh khác nhau
+    public BufferedImage image1, image2;
     
-    // --- MỚI: BỘ ĐẾM HOẠT ẢNH ---
-    public int spriteCounter = 0; // Đếm số khung hình trôi qua
-    public int spriteNum = 1;     // Lưu trạng thái hiện tại (đang hiện ảnh 1 hay ảnh 2)
+    public int spriteCounter = 0;
+    public int spriteNum = 1;
 }

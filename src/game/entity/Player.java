@@ -26,16 +26,14 @@ public class Player extends Entity {
     public boolean invincible = false;
     public int invincibleCounter = 0;
 
-    public int classType = 0; // 0: Pháp sư, 1: Kiếm sĩ
+    public int classType = 0; // 0 = ranger, 1 = swordsman
     public int gunDamage; 
     public int meleeDamage; 
 
-    // THÔNG SỐ TẤN CÔNG
     public boolean isMeleeAttacking = false;
     public int meleeAttackCounter = 0;
     public Rectangle meleeHitbox = new Rectangle(0, 0, 0, 0); 
     
-    // ĐÃ THÊM: BIẾN KIỂM SOÁT HOẠT ẢNH CHO CUNG THỦ
     public boolean isShooting = false;
     public int shootAttackCounter = 0;
 
@@ -43,11 +41,8 @@ public class Player extends Entity {
     public int skillMaxCooldown = 600; 
 
     
-    // ==========================================
-    // KHAI BÁO BIẾN HỆ THỐNG PHÓNG TO (ĐÃ BỔ SUNG)
-    // ==========================================
-    public double scaleFactor = 5.0; // Hệ số phóng to
-    public int drawWidth, drawHeight, offset; // Các biến dùng để vẽ
+    public double scaleFactor = 5.0;
+    public int drawWidth, drawHeight, offset;
 
     public final int screenX;
     public final int screenY;
@@ -77,9 +72,7 @@ public class Player extends Entity {
         setDefaultValues();
     }
 
-    // ==========================================
-    // HÀM TẢI TRỌN BỘ HOẠT ẢNH DỰA TRÊN LỚP NHÂN VẬT
-    // ==========================================
+    // Load sprites for the selected class.
     public void getPlayerImage() {
         
         try {
@@ -87,12 +80,11 @@ public class Player extends Entity {
             BufferedImage walkSheet = ImageIO.read(getClass().getResourceAsStream("/res/player/Soldier-Walk.png"));
             BufferedImage attackSheet = null;
 
-            if (classType == 0) { // CUNG THỦ
+            if (classType == 0) {
                 attackSheet = ImageIO.read(getClass().getResourceAsStream("/res/player/Soldier-Attack03.png"));
-                attackFrames = new BufferedImage[9]; // Ảnh Attack03 của cung thủ có 9 frames
-                // ==========================================
-                // NẠP ẢNH MŨI TÊN (Tên file là arrow.png)
-                // ==========================================
+                attackFrames = new BufferedImage[9];
+
+                // Try both arrow file names.
                 try {
                     java.io.InputStream arrowStream = getClass().getResourceAsStream("/res/player/Arrow.png");
                     if (arrowStream == null) arrowStream = getClass().getResourceAsStream("/res/player/arrow.png");
@@ -101,15 +93,15 @@ public class Player extends Entity {
                     arrowImage = null;
                 }
             } 
-            else if (classType == 1) { // KIẾM SĨ
+            else if (classType == 1) {
                 attackSheet = ImageIO.read(getClass().getResourceAsStream("/res/player/Soldier-Attack01.png"));
-                attackFrames = new BufferedImage[6]; // Ảnh Attack01 của kiếm sĩ có 6 frames
+                attackFrames = new BufferedImage[6];
             }
             
             idleFrames = new BufferedImage[6]; 
             walkFrames = new BufferedImage[8]; 
 
-            // ĐÃ FIX: CHIA CẮT THEO SỐ LƯỢNG FRAME CHÍNH XÁC CỦA TỪNG FILE
+            // Slice each sheet by its frame count.
             int idleFw = idleSheet.getWidth() / 6; 
             for (int i = 0; i < 6; i++) idleFrames[i] = idleSheet.getSubimage(i * idleFw, 0, idleFw, idleSheet.getHeight());
 
@@ -121,7 +113,6 @@ public class Player extends Entity {
             
             slashVFX = new BufferedImage[10];
             for (int i = 0; i < 10; i++) {
-                // %02d nghĩa là định dạng số có 2 chữ số (01, 02... 10)
                 String fileName = String.format("/res/player/slash5-animation_%02d.png", i + 1);
                 slashVFX[i] = ImageIO.read(getClass().getResourceAsStream(fileName));
             }
@@ -154,12 +145,10 @@ public class Player extends Entity {
         
         if (type == 0) {
             gunDamage = 1;
-            // ĐÃ SỬA: Giảm cooldown để tốc độ bắn nhanh như chớp
             attackCooldown = 25; 
         } 
         else if (type == 1) {
             meleeDamage = 2;
-            // ĐÃ SỬA: Giảm cooldown để vung kiếm nhanh hơn
             attackCooldown = 35; 
         }
         
@@ -194,9 +183,6 @@ public class Player extends Entity {
 
             meleeAttackCounter++;
             
-            // ==========================================
-            // ĐÃ FIX: Đồng bộ thời gian chém với Cooldown
-            // ==========================================
             if (meleeAttackCounter >= attackCooldown) { 
                 isMeleeAttacking = false;
                 meleeAttackCounter = 0;
@@ -206,7 +192,7 @@ public class Player extends Entity {
         
         if (isShooting == true) {
             shootAttackCounter++;
-            if (shootAttackCounter >= attackCooldown) { // Khi chạy hết thời gian hồi chiêu
+            if (shootAttackCounter >= attackCooldown) {
                 isShooting = false;
                 shootAttackCounter = 0;
             }
@@ -260,9 +246,6 @@ public class Player extends Entity {
             spriteCounter = 0; 
         }
 
-        // ==========================================
-        // TÍNH TOÁN KÍCH THƯỚC VẼ 
-        // ==========================================
         drawWidth = (int) (gp.tileSize * scaleFactor);
         drawHeight = (int) (gp.tileSize * scaleFactor);
         offset = (drawWidth - gp.tileSize) / 2;
@@ -273,7 +256,7 @@ public class Player extends Entity {
         if (gp.mouseH.pressed == true) {
             if (shootCooldown == 0) { 
                 
-                // --- XẠ THỦ (Bắn xa) ---
+                // Ranger attack.
                 if (classType == 0 && isShooting == false) {
                     isShooting = true;
                     if (doubleShot == true) {
@@ -293,7 +276,7 @@ public class Player extends Entity {
                     shootCooldown = Math.max(15, attackCooldown);
                 }
                 
-                // --- KIẾM SĨ (Chém cận chiến) ---
+                // Swordsman attack.
                 else if (classType == 1 && isMeleeAttacking == false) {
                     isMeleeAttacking = true;
                     gp.playSE(2); 
@@ -320,31 +303,21 @@ public class Player extends Entity {
                         while (angleDifference <= -Math.PI) angleDifference += Math.PI * 2;
                         while (angleDifference > Math.PI) angleDifference -= Math.PI * 2;
 
-                        // ==========================================
-                        // ĐÃ NÂNG CẤP: XÓA ĐIỂM MÙ & ĐẨY LÙI
-                        // ==========================================
                         boolean isHit = false;
                         
-                        // A. Nếu quái đè sát vào người -> Trúng 100%
+                        // Close monsters still count as melee hits.
                         if (distanceToCenter <= monsterRadius) {
                             isHit = true; 
                         } 
-                        // B. Va chạm bình thường trong tầm vung kiếm
                         else if (distanceToEdge <= attackRange && Math.abs(angleDifference) <= coneAngle / 2.0) {
                             isHit = true; 
                         }
 
-                        // XỬ LÝ SÁT THƯƠNG VÀ HIỆU ỨNG
                         if (isHit) {
                             m.hp -= meleeDamage; 
                             gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, "-" + meleeDamage, Color.YELLOW));
                             
-                            // // KNOCKBACK: Đẩy lùi quái
-                            // int knockbackForce = 20; 
-                            // m.x += (int)(Math.cos(meleeAttackAngle) * knockbackForce);
-                            // m.y += (int)(Math.sin(meleeAttackAngle) * knockbackForce);
-
-                            // STUN: Làm choáng quái trong nửa giây
+                            // Short hit stun.
                             m.stunCounter = 15;
 
                             if (m.hp <= 0) {
@@ -360,7 +333,7 @@ public class Player extends Entity {
             } 
         } 
 
-        // CHIÊU CUỐI (SKILL)
+        // Ultimate skill.
         if (keyH.spacePressed == true && skillCooldown == 0) {
             keyH.spacePressed = false; 
 
@@ -410,13 +383,13 @@ public class Player extends Entity {
         BufferedImage image = null;
 
         try {
-            // Ưu tiên 1: ĐANG CHÉM KIẾM (Kiếm Sĩ)
+            // Melee attack animation has priority.
             if (classType == 1 && isMeleeAttacking == true) {
                 
                 double progress = (double) meleeAttackCounter / attackCooldown;
                 int attackFrameIndex = 0; 
                 
-                // Thao túng nhịp độ (Non-linear animation)
+                // Non-linear timing makes the swing feel snappier.
                 if (progress < 0.15) {
                     attackFrameIndex = 0;
                 } else if (progress < 0.60) {
@@ -432,20 +405,19 @@ public class Player extends Entity {
                 
                 image = attackFrames[attackFrameIndex];
             } 
-            // Ưu tiên 2: ĐANG BẮN CUNG (Cung Thủ)
+            // Then ranged attack animation.
             else if (classType == 0 && isShooting == true) {
                 double progress = (double) shootAttackCounter / attackCooldown;
                 int attackFrameIndex = (int) (progress * attackFrames.length); 
                 if (attackFrameIndex >= attackFrames.length) attackFrameIndex = attackFrames.length - 1;
                 image = attackFrames[attackFrameIndex];
             } 
-            // Ưu tiên 3: ĐANG CHẠY HOẶC ĐỨNG YÊN (Áp dụng chung)
             else {
-                if (animationState == 0) { // ĐỨNG YÊN
+                if (animationState == 0) {
                     if (idleFrames != null && spriteNum < idleFrames.length) {
                         image = idleFrames[spriteNum];
                     }
-                } else if (animationState == 1) { // ĐANG CHẠY
+                } else if (animationState == 1) {
                     if (walkFrames != null && spriteNum < walkFrames.length) {
                         image = walkFrames[spriteNum];
                     }
@@ -455,21 +427,18 @@ public class Player extends Entity {
             spriteNum = 0; 
         }
 
-        //TỰ ĐỘNG CĂN TÂM & CO GIÃN THEO TỶ LỆ GỐC
+        // Keep the enlarged sprite centered on the hitbox.
         int drawX = gp.player.screenX; 
         int drawY = gp.player.screenY; 
         int currentDrawWidth = gp.tileSize; 
         int currentDrawHeight = gp.tileSize;
 
         if (image != null) {
-            // Cố định chiều cao theo scaleFactor
             currentDrawHeight = (int) (gp.tileSize * scaleFactor); 
             
-            // Tính chiều rộng linh hoạt theo tỷ lệ thật của ảnh
             double ratio = (double) image.getWidth() / image.getHeight();
             currentDrawWidth = (int) (currentDrawHeight * ratio);
 
-            // Tự động tính toán bù trừ để căn giữa ảnh vào Hitbox
             int offsetX = (currentDrawWidth - gp.tileSize) / 2;
             int offsetY = (currentDrawHeight - gp.tileSize) / 2;
             
@@ -480,13 +449,12 @@ public class Player extends Entity {
         int playerCenterX = gp.player.screenX + gp.tileSize / 2;
         int playerCenterY = gp.player.screenY + gp.tileSize / 2;
 
-        // Logic Lật ảnh theo hướng chuột
+        // Face the mouse cursor.
         if (gp.mouseH.mouseX < playerCenterX) { 
             drawX = drawX + currentDrawWidth; 
             currentDrawWidth = -currentDrawWidth; 
         }
 
-        // Vẽ nhân vật
         if (image != null) {
             g2.drawImage(image, drawX, drawY, currentDrawWidth, currentDrawHeight, null);
         } else {
@@ -501,7 +469,7 @@ public class Player extends Entity {
         g2.setColor(Color.RED);
         g2.drawLine(playerCenterX, playerCenterY, gp.mouseH.mouseX, gp.mouseH.mouseY);
 
-        // VẼ HIỆU ỨNG VFX KẾT HỢP (GIÓ CHUẨN HITBOX, LỬA KHỔNG LỒ)
+        // Swordsman swing effect.
         if (classType == 1 && isMeleeAttacking == true) {
             
             double progress = (double) meleeAttackCounter / attackCooldown;
@@ -512,39 +480,28 @@ public class Player extends Entity {
             java.awt.geom.AffineTransform oldTransform = g2.getTransform(); 
             g2.rotate(meleeAttackAngle, playerCenterX, playerCenterY);
 
-            // ==========================================
-            // 1. KHAI BÁO 2 TẦM ĐÁNH KHÁC NHAU
-            // ==========================================
-            // A. Tầm sát thương thật (Đảm bảo hệ số ở đây khớp 100% với hàm update)
+            // Real hit range.
             int attackRange = (int) (gp.tileSize * 0.5 * scaleFactor) + meleeRangeBonus; 
             
-            // B. Tầm nhìn của hình ảnh Lửa (Hệ số to hơn để lửa phình ra)
+            // Bigger visual range for the slash sprite.
             int visualRange = (int) (gp.tileSize * 0.8 * scaleFactor) + meleeRangeBonus; 
             
-            // Góc chém chung
             double totalAngleRadian = Math.PI / 2 + meleeAngleBonus;
             int totalAngleDeg = (int) Math.toDegrees(totalAngleRadian);
 
-            // ----------------------------------------------------
-            // 2. VẼ VỆT GIÓ MỜ (Chỉ vẽ bằng attackRange)
-            // ----------------------------------------------------
             int windAlpha = 150 - (150 * meleeAttackCounter / attackCooldown);
             if (windAlpha < 0) windAlpha = 0;
             g2.setColor(new Color(255, 200, 100, windAlpha)); 
             
             int startAngle = -totalAngleDeg / 2; 
             
-            // Vệt gió báo hiệu đúng giới hạn mất máu của quái!
+            // Wind arc shows the real damage range.
             g2.fillArc(playerCenterX - attackRange, playerCenterY - attackRange, 
                        attackRange * 2, attackRange * 2, 
                        startAngle, totalAngleDeg); 
 
-            // ----------------------------------------------------
-            // 3. VẼ SPRITE LỬA (Vẽ to ra bằng visualRange)
-            // ----------------------------------------------------
             if (currentSlash != null) {
                 
-                // Toán học bóp méo lửa dựa trên visualRange (không liên quan tới Hitbox nữa)
                 int vfxHeight = (int) (visualRange * totalAngleRadian * 1.2); 
                 int vfxWidth = (int) (visualRange * 1.2); 
                 
@@ -554,7 +511,6 @@ public class Player extends Entity {
                 g2.drawImage(currentSlash, vfxX, vfxY, vfxWidth, vfxHeight, null);
             }
 
-            // Trả lại màn hình
             g2.setTransform(oldTransform); 
         }
         

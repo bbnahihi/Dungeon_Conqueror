@@ -46,7 +46,7 @@ public class PathFinder {
         goalNode = node[goalCol][goalRow];
         openList.add(currentNode);
 
-        // Quét bản đồ xem ô nào là tường
+        // Mark wall tiles as blocked.
         for (int col = 0; col < gp.maxWorldCol; col++) {
             for (int row = 0; row < gp.maxWorldRow; row++) {
                 int tileNum = gp.tileM.mapTileNum[col][row];
@@ -68,18 +68,16 @@ public class PathFinder {
             currentNode.checked = true;
             openList.remove(currentNode);
 
-            // ==========================================
-            // NÂNG CẤP: TÌM ĐƯỜNG 8 HƯỚNG (DIAGONAL A*)
-            // ==========================================
+            // 8-way A* search.
             boolean up = false, down = false, left = false, right = false;
             
-            // 1. Quét 4 hướng cơ bản (Lên, Xuống, Trái, Phải) và kiểm tra Tường
+            // Check straight neighbors first.
             if (row - 1 >= 0) { openNode(node[col][row - 1]); up = !node[col][row - 1].solid; }
             if (row + 1 < gp.maxWorldRow) { openNode(node[col][row + 1]); down = !node[col][row + 1].solid; }
             if (col - 1 >= 0) { openNode(node[col - 1][row]); left = !node[col - 1][row].solid; }
             if (col + 1 < gp.maxWorldCol) { openNode(node[col + 1][row]); right = !node[col + 1][row].solid; }
 
-            // 2. Quét 4 hướng chéo (CHỈ CHO PHÉP ĐI CHÉO NẾU KHÔNG BỊ TƯỜNG KẸT GÓC)
+            // Diagonal moves are allowed only when corners are not blocked.
             if (up && left) openNode(node[col - 1][row - 1]);
             if (up && right) openNode(node[col + 1][row - 1]);
             if (down && left) openNode(node[col - 1][row + 1]);
@@ -88,7 +86,7 @@ public class PathFinder {
             int bestNodeIndex = 0;
             int bestNodefCost = 9999;
             
-            // Tìm ô có chi phí (khoảng cách) ngắn nhất để đi tiếp
+            // Pick the cheapest open node.
             for (int i = 0; i < openList.size(); i++) {
                 if (openList.get(i).fCost < bestNodefCost) {
                     bestNodeIndex = i;
@@ -100,7 +98,7 @@ public class PathFinder {
                 }
             }
 
-            if (openList.size() == 0) break; // Bí đường hoàn toàn
+            if (openList.size() == 0) break;
             currentNode = openList.get(bestNodeIndex);
             
             if (currentNode == goalNode) {
@@ -117,14 +115,14 @@ public class PathFinder {
         node.open = true;
         node.parent = currentNode;
         
-        // Nếu ô tiếp theo nằm chéo (khác cả cột và hàng), cộng chi phí 14, đi thẳng cộng 10
+        // Diagonal movement costs a little more than straight movement.
         if (node.col != currentNode.col && node.row != currentNode.row) {
             node.gCost = currentNode.gCost + 14;
         } else {
             node.gCost = currentNode.gCost + 10;
         }
         
-        // Sử dụng Diagonal Distance (Octile Distance) chuẩn cho không gian 8 hướng
+        // Octile distance works well for 8-way movement.
         int dx = Math.abs(node.col - goalNode.col);
         int dy = Math.abs(node.row - goalNode.row);
         node.hCost = 10 * (dx + dy) + (14 - 2 * 10) * Math.min(dx, dy);

@@ -20,11 +20,9 @@ public class KeyHandler implements KeyListener {
     @Override
     public void keyPressed(KeyEvent e) {
         
-        int code = e.getKeyCode(); // Khai báo biến code nhận tín hiệu phím
+        int code = e.getKeyCode();
 
-        // ==========================================
-        // 1. TRẠNG THÁI MENU (CHỌN CLASS)
-        // ==========================================
+        // Title menu.
         if (gp.gameState == gp.titleState) {
             if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) {
                 gp.ui.commandNum--;
@@ -42,30 +40,29 @@ public class KeyHandler implements KeyListener {
             }
             if (code == KeyEvent.VK_ENTER) {
                 if (gp.ui.commandNum == 0) {
-                    gp.gameState = gp.characterState; // Vào màn chọn nhân vật
+                    gp.gameState = gp.characterState;
                 }
                 if (gp.ui.commandNum == 1) {
                     gp.cycleDifficulty();
                 }
                 if (gp.ui.commandNum == 2) {
-                    gp.previousState = gp.titleState; // Ghi nhớ Options được mở từ menu chính
-                    gp.gameState = gp.optionsState; // Vào cài đặt
-                    gp.ui.commandNum = 0; // Reset con trỏ cho màn cài đặt
+                    gp.previousState = gp.titleState;
+                    gp.gameState = gp.optionsState;
+                    gp.ui.commandNum = 0;
                 }
                 if (gp.ui.commandNum == 3) {
-                    System.exit(0); // Thoát game
+                    System.exit(0);
                 }
             }
         }
         else if (gp.gameState == gp.characterState) {
             if (code == KeyEvent.VK_ESCAPE) {
-                gp.gameState = gp.titleState; // Bấm ESC để quay lại
+                gp.gameState = gp.titleState;
                 gp.ui.commandNum = 0;
             }
             if (code == KeyEvent.VK_1 || code == KeyEvent.VK_2) {
                 gp.gameState = gp.playState;
                 
-                // ĐÃ FIX BUG: Bắt đầu từ Màn 1, thay vì Màn 10!
                 gp.currentLevel = 1;     
                 
                 gp.player.setDefaultValues(); 
@@ -74,7 +71,6 @@ public class KeyHandler implements KeyListener {
                 if (code == KeyEvent.VK_1) gp.player.setupClass(0); 
                 if (code == KeyEvent.VK_2) gp.player.setupClass(1); 
                 
-                // ĐÃ FIX: Chỉ gọi hàm chuyển map bằng level
                 gp.transitionToNewMap(gp.currentLevel); 
             }
         }
@@ -88,12 +84,10 @@ public class KeyHandler implements KeyListener {
                 if (gp.ui.commandNum > 2) gp.ui.commandNum = 0;
             }
             
-            // Dùng nút Trái/Phải để chỉnh âm lượng
-            // Dùng nút Trái/Phải để chỉnh âm lượng
+            // Left/right adjust the selected volume.
             if (code == KeyEvent.VK_A || code == KeyEvent.VK_LEFT) {
                 if (gp.ui.commandNum == 0 && gp.musicVolume > 0) {
                     gp.musicVolume--;
-                    // Cập nhật âm lượng nhạc nền đang phát ngay lập tức
                     gp.music.setVolume(gp.getVolumeDecibels(gp.musicVolume)); 
                 }
                 if (gp.ui.commandNum == 1 && gp.seVolume > 0) {
@@ -110,44 +104,34 @@ public class KeyHandler implements KeyListener {
                 }
             }
             
-            // Thoát
-            // TÌM CHỖ NÀY VÀ SỬA LẠI:
-            // Thoát
             if (code == KeyEvent.VK_ENTER && gp.ui.commandNum == 2) {
-                gp.gameState = gp.previousState; // <--- TRẢ VỀ ĐÚNG MÀN HÌNH TRƯỚC ĐÓ
-                // Chỉnh lại con trỏ để UX mượt hơn
+                gp.gameState = gp.previousState;
                 gp.ui.commandNum = (gp.previousState == gp.pauseState) ? 2 : 0; 
             }
             if (code == KeyEvent.VK_ESCAPE) {
-                gp.gameState = gp.previousState; // <--- TRẢ VỀ ĐÚNG MÀN HÌNH TRƯỚC ĐÓ
+                gp.gameState = gp.previousState;
                 gp.ui.commandNum = (gp.previousState == gp.pauseState) ? 2 : 0;
             }
         }
         
-        // ==========================================
-        // 2. TRẠNG THÁI ĐANG CHƠI (PLAY STATE)
-        // ==========================================
+        // Gameplay controls.
         else if (gp.gameState == gp.playState) {
             if (code == KeyEvent.VK_W) upPressed = true;
             if (code == KeyEvent.VK_A) leftPressed = true;
             if (code == KeyEvent.VK_S) downPressed = true;
             if (code == KeyEvent.VK_D) rightPressed = true;
             
-            // Đưa phím SPACE vào đúng trạng thái đang chơi
             if (code == KeyEvent.VK_SPACE) spacePressed = true;
             
             if (code == KeyEvent.VK_P || code == KeyEvent.VK_ESCAPE) { 
                 gp.pauseMusic();
-                gp.gameState = gp.pauseState; // Nhấn P để tạm dừng
+                gp.gameState = gp.pauseState;
                 gp.ui.commandNum = 0;
             }
         }
         
-        // ==========================================
-        // TRẠNG THÁI TẠM DỪNG (PAUSE STATE)
-        // ==========================================
+        // Pause menu.
         else if (gp.gameState == gp.pauseState) {
-            // Chú ý: Đổi điều kiện lên 3 vì chúng ta có 4 menu (0, 1, 2, 3)
             if (code == KeyEvent.VK_W || code == KeyEvent.VK_UP) {
                 gp.ui.commandNum--;
                 if (gp.ui.commandNum < 0) gp.ui.commandNum = 4;
@@ -158,8 +142,8 @@ public class KeyHandler implements KeyListener {
             }
             if (code == KeyEvent.VK_ENTER) {
                 if (gp.ui.commandNum == 0) {
-                    gp.gameState = gp.playState; // Tiếp tục
-                    gp.resumeMusic(); // <--- CHẠY TIẾP NHẠC
+                    gp.gameState = gp.playState;
+                    gp.resumeMusic();
                 }
                 if (gp.ui.commandNum == 1) {
                     int selectedClass = gp.player.classType;
@@ -176,48 +160,42 @@ public class KeyHandler implements KeyListener {
                     return;
                 }
                 if (gp.ui.commandNum == 3) {
-                    gp.gameState = gp.titleState; // Về trang chủ
+                    gp.gameState = gp.titleState;
                     gp.ui.commandNum = 0;
-                    gp.resetGame(); // Hủy hết quái và đạn cũ
-                    gp.playMusic(6); // Mở nhạc menu
+                    gp.resetGame();
+                    gp.playMusic(6);
                 }
                 if (gp.ui.commandNum == 4) {
-                    System.exit(0); // Thoát luôn
+                    System.exit(0);
                 }
             }
             if (code == KeyEvent.VK_P || code == KeyEvent.VK_ESCAPE) {
                 gp.gameState = gp.playState; 
-                gp.resumeMusic(); // Phím tắt để tiếp tục cũng phải bật lại nhạc
+                gp.resumeMusic();
             }
         }
         
-        // ==========================================
-        // 4. TRẠNG THÁI GAME OVER
-        // ==========================================
+        // Game over screen.
         else if (gp.gameState == gp.gameOverState) {
             if (code == KeyEvent.VK_R) { 
                 gp.resetGame();
                 gp.gameState = gp.titleState;
                 gp.ui.commandNum = 0;
-                gp.playMusic(6); // Bật lại nhạc Menu (ID 6)
+                gp.playMusic(6);
             }
         }
 
-        // ==========================================
-        // 5. TRẠNG THÁI CHIẾN THẮNG
-        // ==========================================
+        // Victory screen.
         else if (gp.gameState == gp.gameWinState) {
             if (code == KeyEvent.VK_ENTER) { 
                 gp.resetGame();
                 gp.gameState = gp.titleState;
                 gp.ui.commandNum = 0;
-                gp.playMusic(6); // Bật lại nhạc Menu
+                gp.playMusic(6);
             }
         }
         
-        // ==========================================
-        // 6. TRẠNG THÁI CHỌN NÂNG CẤP (UPGRADE STATE)
-        // ==========================================
+        // Upgrade choice screen.
         else if (gp.gameState == gp.upgradeState) {
             if (code == KeyEvent.VK_1 || code == KeyEvent.VK_2 || code == KeyEvent.VK_3) {
                 int choice = 0;

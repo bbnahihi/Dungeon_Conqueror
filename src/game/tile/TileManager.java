@@ -18,28 +18,21 @@ public class TileManager {
         this.gp = gp;
         tile = new Tile[10]; 
         
-        // MẢNG HIỆN TẠI LÀ 50x50
         mapTileNum = new int[gp.maxWorldCol][gp.maxWorldRow];
         
-        getTileInfo(); // Bây giờ hàm này sẽ tự động đọc biến gp.currentTheme để lấy ảnh
+        getTileInfo();
         loadMap(1);
     }
 
-    // ==========================================
-    // ĐÃ NÂNG CẤP: TỰ ĐỘNG NẠP ẢNH THEO CHỦ ĐỀ
-    // ==========================================
+    // Load tile images for the current theme.
     public void getTileInfo() {
         try {
-            // Khởi tạo 2 loại ô cơ bản
             tile[0] = new Tile();
-            tile[0].collision = false; // Sàn nhà
+            tile[0].collision = false;
 
             tile[1] = new Tile();
-            tile[1].collision = true;  // Bức tường (Vật lý cản đường)
+            tile[1].collision = true;
 
-            // ==========================================
-            // LOGIC XOAY VÒNG THEME (HỆ SINH THÁI)
-            // ==========================================
             if (gp.currentTheme == gp.THEME_FOREST) {
                 tile[0].image = ImageIO.read(getClass().getResourceAsStream("/res/maps/forest_floor.png"));
                 tile[1].image = ImageIO.read(getClass().getResourceAsStream("/res/maps/forest_wall.png"));
@@ -59,47 +52,37 @@ public class TileManager {
         }
     }
 
-    // ==========================================
-    // LOGIC TẠO MAP VÀ VẼ MAP GIỮ NGUYÊN 100%
-    // ==========================================
+    // Load the map for this level.
     public void loadMap(int level) {
         try {
-            // Tự động tìm file theo level. Ví dụ: qua màn 2 sẽ tìm level2.txt
             String mapPath = "/res/maps/level" + level + ".txt";
             InputStream is = getClass().getResourceAsStream(mapPath);
             
-            // LỚP BẢO VỆ: Nếu bạn chưa kịp tạo level2.txt, level3.txt...
-            // Nó sẽ tự động load lại level1.txt để game không bị Crash.
+            // Fall back to level 1 if this level map is missing.
             if (is == null) {
                 System.out.println("WARNING: Map for level " + level + " not found -> using level 1!");
                 is = getClass().getResourceAsStream("/res/maps/level1.txt"); 
             }
 
-            // Mở file ra đọc từng dòng
             BufferedReader br = new BufferedReader(new InputStreamReader(is));
 
             int col = 0;
             int row = 0;
 
             while (col < gp.maxWorldCol && row < gp.maxWorldRow) {
-                // Đọc 1 dòng (ví dụ: "1 0 0 1 1...")
                 String line = br.readLine();
                 
                 if (line == null) break;
 
-                // Tách các con số ra dựa vào khoảng trắng
                 String numbers[] = line.split(" ");
 
                 while (col < gp.maxWorldCol) {
-                    // Ép kiểu chữ thành số nguyên
                     int num = Integer.parseInt(numbers[col]);
                     
-                    // Ghi vào ma trận bộ nhớ của game
                     mapTileNum[col][row] = num;
                     col++;
                 }
                 
-                // Hết 1 hàng (đạt 30 cột) thì xuống hàng tiếp theo
                 if (col == gp.maxWorldCol) {
                     col = 0;
                     row++;
@@ -130,21 +113,17 @@ public class TileManager {
                 worldY - gp.tileSize < gp.player.y + gp.player.screenY) {
                 
                 if (tile[tileNum] != null) {
-                    // ==========================================
-                    // KÍNH X-QUANG: NẾU CÓ ẢNH THÌ VẼ ẢNH, KHÔNG CÓ THÌ ĐỔ MÀU!
-                    // ==========================================
                     if (tile[tileNum].image != null) {
                         g2.drawImage(tile[tileNum].image, screenX, screenY, gp.tileSize, gp.tileSize, null);
                     } else {
-                        // Vẽ màu tạm thời (Xám = Tường, Xanh đen = Sàn)
+                        // Fallback colors if a tile image is missing.
                         if (tileNum == 1) {
-                            g2.setColor(Color.GRAY); // Tường
+                            g2.setColor(Color.GRAY);
                         } else {
-                            g2.setColor(new Color(40, 40, 40)); // Sàn nhà
+                            g2.setColor(new Color(40, 40, 40));
                         }
                         g2.fillRect(screenX, screenY, gp.tileSize, gp.tileSize);
                         
-                        // Vẽ thêm cái viền mờ mờ cho dễ nhìn từng ô gạch
                         g2.setColor(Color.DARK_GRAY);
                         g2.drawRect(screenX, screenY, gp.tileSize, gp.tileSize);
                     }
