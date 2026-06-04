@@ -5,10 +5,15 @@ import game.input.KeyHandler;
 import game.input.MouseHandler;
 
 import java.awt.Color;
+import java.awt.BasicStroke;
+import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.Stroke;
 import java.awt.AlphaComposite; 
 import java.awt.image.BufferedImage;
+import java.util.HashSet;
+import java.util.Set;
 import javax.imageio.ImageIO; 
 
 public class Player extends Entity {
@@ -33,6 +38,8 @@ public class Player extends Entity {
     public boolean isMeleeAttacking = false;
     public int meleeAttackCounter = 0;
     public Rectangle meleeHitbox = new Rectangle(0, 0, 0, 0); 
+    private Set<Monster> hitMonstersThisSwing = new HashSet<>();
+    private Set<Bullet> parriedBulletsThisSwing = new HashSet<>();
     
     public boolean isShooting = false;
     public int shootAttackCounter = 0;
@@ -51,7 +58,38 @@ public class Player extends Entity {
     public boolean doubleShot = false;     
     public int ultiBulletCount = 24;       
     public int meleeRangeBonus = 0;        
+    public int meleeWidthBonus = 0;
+    public boolean swordReflectBullets = false;
     public double meleeAngleBonus = 0;     
+
+    public boolean isBladeRushActive = false;
+    private int bladeRushCounter = 0;
+    private double bladeRushAngle = 0;
+    private Set<Monster> hitMonstersThisBladeRush = new HashSet<>();
+    private Set<Bullet> parriedBulletsThisBladeRush = new HashSet<>();
+
+    private static final boolean DEBUG_SWORD_HITBOX = false;
+    private static final int SWORD_BASE_REACH = 80;
+    private static final int SWORD_BASE_WIDTH = 42;
+    private static final int BLADE_RUSH_DURATION = 14;
+    private static final int BLADE_RUSH_SPEED = 11;
+    private static final int BLADE_RUSH_DAMAGE = 10;
+    private static final int BLADE_RUSH_WIDTH = 56;
+    private static final int BLADE_RUSH_STUN = 30;
+    private static final int BLADE_RUSH_AFTERIMAGE_INTERVAL = 2;
+    private static final int BLADE_RUSH_AFTERIMAGE_LIFE = 12;
+    private static final int BLADE_RUSH_AFTERIMAGE_MAX = 10;
+
+    private static class DashAfterimage {
+        int worldX;
+        int worldY;
+        BufferedImage image;
+        boolean facingLeft;
+        int life;
+        int maxLife;
+    }
+
+    private java.util.ArrayList<DashAfterimage> bladeRushAfterimages = new java.util.ArrayList<>();
 
     public BufferedImage[] idleFrames;
     public BufferedImage[] walkFrames;
@@ -125,6 +163,8 @@ public class Player extends Entity {
     public void setDefaultValues() {
         x = gp.tileSize * 15; 
         y = gp.tileSize * 15;
+        maxHp = 8;
+        hp = maxHp;
         speed = 4;
         solidArea = new Rectangle(8, 16, 32, 32); 
         
@@ -137,23 +177,340 @@ public class Player extends Entity {
         doubleShot = false;
         ultiBulletCount = 24;
         meleeRangeBonus = 0;
+        meleeWidthBonus = 0;
+        swordReflectBullets = false;
         meleeAngleBonus = 0;
-        
-        if (maxHp <= 0) {
-            maxHp = 10; 
-        }
+        resetSwordCombatState();
         
         if (type == 0) {
+            maxHp = 8;
+            speed = 4;
             gunDamage = 1;
             attackCooldown = 25; 
         } 
         else if (type == 1) {
-            meleeDamage = 2;
-            attackCooldown = 35; 
+            maxHp = 11;
+            speed = 5;
+            meleeDamage = 3;
+            attackCooldown = 25;
         }
         
         hp = maxHp; 
         getPlayerImage();
+    }
+
+    public void resetSwordCombatState() {
+        resetNormalMeleeAttack();
+        resetBladeRush();
+    }
+
+    private void resetNormalMeleeAttack() {
+        isMeleeAttacking = false;
+        meleeAttackCounter = 0;
+        meleeHitbox.setBounds(0, 0, 0, 0);
+        hitMonstersThisSwing.clear();
+        parriedBulletsThisSwing.clear();
+    }
+
+    private void resetBladeRush() {
+        isBladeRushActive = false;
+        bladeRushCounter = 0;
+        hitMonstersThisBladeRush.clear();
+        parriedBulletsThisBladeRush.clear();
+        bladeRushAfterimages.clear();
+    }
+
+    private int getMeleeAttackFrameIndex() {
+        int frameCount = 6;
+        if (attackFrames != null && attackFrames.length > 0) {
+            frameCount = attackFrames.length;
+        }
+
+        double progress = (double) meleeAttackCounter / Math.max(1, attackCooldown);
+        int attackFrameIndex;
+
+        if (progress < 0.15) {
+            attackFrameIndex = 0;
+        } else if (progress < 0.60) {
+            double swingProgress = (progress - 0.15) / 0.45;
+            attackFrameIndex = 1 + (int)(swingProgress * (frameCount - 2));
+        } else {
+            attackFrameIndex = frameCount - 1;
+        }
+
+        if (attackFrameIndex < 0) attackFrameIndex = 0;
+        if (attackFrameIndex >= frameCount) attackFrameIndex = frameCount - 1;
+        return attackFrameIndex;
+    }
+
+    private boolean isMeleeAttackActiveFrame() {
+        int frameIndex = getMeleeAttackFrameIndex();
+        return frameIndex == 3 || frameIndex == 4;
+    }
+
+    public boolean isSwordParryActive() {
+        if (classType != 1 || isMeleeAttacking == false) return false;
+
+        int frameIndex = getMeleeAttackFrameIndex();
+        return frameIndex >= 2 && frameIndex <= 5;
+    }
+
+    private int getSwordReach() {
+        return SWORD_BASE_REACH + meleeRangeBonus;
+    }
+
+    private int getSwordWidth() {
+        return SWORD_BASE_WIDTH + meleeWidthBonus;
+    }
+
+    private boolean swordCapsuleIntersects(Rectangle bounds, int reach, int width) {
+        return capsuleIntersects(bounds, meleeAttackAngle, 12.0, reach, width);
+    }
+
+    private boolean bladeRushCapsuleIntersects(Rectangle bounds) {
+        return capsuleIntersects(bounds, bladeRushAngle, -BLADE_RUSH_SPEED, gp.tileSize + BLADE_RUSH_SPEED, BLADE_RUSH_WIDTH);
+    }
+
+    private boolean capsuleIntersects(Rectangle bounds, double angle, double startDistance, double endDistance, int width) {
+        int centerX = x + gp.tileSize / 2;
+        int centerY = y + gp.tileSize / 2;
+        double dirX = Math.cos(angle);
+        double dirY = Math.sin(angle);
+
+        double startX = centerX + dirX * startDistance;
+        double startY = centerY + dirY * startDistance;
+        double endX = centerX + dirX * endDistance;
+        double endY = centerY + dirY * endDistance;
+
+        double boundsCenterX = bounds.x + bounds.width / 2.0;
+        double boundsCenterY = bounds.y + bounds.height / 2.0;
+        double boundsRadius = Math.max(bounds.width, bounds.height) / 2.0;
+        double allowedDistance = width / 2.0 + boundsRadius;
+
+        return distancePointToSegment(boundsCenterX, boundsCenterY, startX, startY, endX, endY) <= allowedDistance;
+    }
+
+    private double distancePointToSegment(double px, double py, double x1, double y1, double x2, double y2) {
+        double segX = x2 - x1;
+        double segY = y2 - y1;
+        double lenSq = segX * segX + segY * segY;
+
+        if (lenSq == 0) {
+            double dx = px - x1;
+            double dy = py - y1;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        double t = ((px - x1) * segX + (py - y1) * segY) / lenSq;
+        if (t < 0) t = 0;
+        if (t > 1) t = 1;
+
+        double closestX = x1 + t * segX;
+        double closestY = y1 + t * segY;
+        double dx = px - closestX;
+        double dy = py - closestY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private void applySwordSlashHits() {
+        int reach = getSwordReach();
+        int width = getSwordWidth();
+
+        for (int i = 0; i < gp.monsterList.size(); i++) {
+            Monster m = gp.monsterList.get(i);
+            if (m.hp <= 0 || m.isBossDying() || hitMonstersThisSwing.contains(m)) continue;
+
+            if (swordCapsuleIntersects(m.getBounds(), reach, width)) {
+                hitMonstersThisSwing.add(m);
+                m.hp -= meleeDamage;
+                gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, "-" + meleeDamage, Color.YELLOW));
+                m.stunCounter = 20;
+            }
+        }
+    }
+
+    private void parrySwordBullets() {
+        for (int i = 0; i < gp.bulletList.size(); i++) {
+            Bullet b = gp.bulletList.get(i);
+            if (tryParryBullet(b)) {
+                gp.bulletList.remove(i);
+                i--;
+            }
+        }
+    }
+
+    public boolean tryParryBullet(Bullet b) {
+        if (b == null || b.alive == false || b.isPlayerBullet || classType != 1) return false;
+
+        if (isBladeRushActive) {
+            if (parriedBulletsThisBladeRush.contains(b)) return false;
+
+            if (bladeRushCapsuleIntersects(b.getBounds())) {
+                parriedBulletsThisBladeRush.add(b);
+                finishParriedBullet(b, bladeRushAngle);
+                return true;
+            }
+        }
+
+        if (isSwordParryActive()) {
+            if (parriedBulletsThisSwing.contains(b)) return false;
+
+            int parryReach = getSwordReach() + 32;
+            int parryWidth = getSwordWidth() + 36;
+            if (swordCapsuleIntersects(b.getBounds(), parryReach, parryWidth)) {
+                parriedBulletsThisSwing.add(b);
+                finishParriedBullet(b, meleeAttackAngle);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void finishParriedBullet(Bullet b, double reflectAngle) {
+        Rectangle bulletBounds = b.getBounds();
+        int bulletCenterX = bulletBounds.x + bulletBounds.width / 2;
+        int bulletCenterY = bulletBounds.y + bulletBounds.height / 2;
+
+        b.alive = false;
+        gp.playSE(2);
+
+        if (swordReflectBullets) {
+            int targetX = bulletCenterX + (int)(Math.cos(reflectAngle) * 1000);
+            int targetY = bulletCenterY + (int)(Math.sin(reflectAngle) * 1000);
+            int reflectedDamage = Math.max(1, meleeDamage);
+            gp.bulletList.add(new Bullet(gp, bulletCenterX, bulletCenterY, targetX, targetY, true, reflectedDamage));
+        }
+    }
+
+    private void trySwordAttackLunge() {
+        int oldX = x;
+        int oldY = y;
+
+        x += (int)Math.round(Math.cos(meleeAttackAngle) * 10);
+        y += (int)Math.round(Math.sin(meleeAttackAngle) * 10);
+
+        collisionOn = false;
+        gp.cChecker.checkTile(this);
+        if (collisionOn == true) {
+            x = oldX;
+            y = oldY;
+            collisionOn = false;
+        }
+    }
+
+    private void spawnBladeRushAfterimage() {
+        BufferedImage image = getCurrentPlayerDrawImage();
+        if (image == null) return;
+
+        DashAfterimage afterimage = new DashAfterimage();
+        afterimage.worldX = x;
+        afterimage.worldY = y;
+        afterimage.image = image;
+        afterimage.facingLeft = isFacingLeft();
+        afterimage.life = BLADE_RUSH_AFTERIMAGE_LIFE;
+        afterimage.maxLife = BLADE_RUSH_AFTERIMAGE_LIFE;
+        bladeRushAfterimages.add(afterimage);
+
+        while (bladeRushAfterimages.size() > BLADE_RUSH_AFTERIMAGE_MAX) {
+            bladeRushAfterimages.remove(0);
+        }
+    }
+
+    private void updateBladeRushAfterimages() {
+        for (int i = 0; i < bladeRushAfterimages.size(); i++) {
+            DashAfterimage afterimage = bladeRushAfterimages.get(i);
+            afterimage.life--;
+            if (afterimage.life <= 0) {
+                bladeRushAfterimages.remove(i);
+                i--;
+            }
+        }
+    }
+
+    private boolean isFacingLeft() {
+        int playerCenterX = gp.player.screenX + gp.tileSize / 2;
+        return gp.mouseH.mouseX < playerCenterX;
+    }
+
+    private void startBladeRush(int targetWorldX, int targetWorldY) {
+        resetNormalMeleeAttack();
+        isBladeRushActive = true;
+        bladeRushCounter = 0;
+        bladeRushAngle = Math.atan2(targetWorldY - (y + gp.tileSize / 2), targetWorldX - (x + gp.tileSize / 2));
+        meleeAttackAngle = bladeRushAngle;
+        hitMonstersThisBladeRush.clear();
+        parriedBulletsThisBladeRush.clear();
+        invincible = true;
+        invincibleCounter = 0;
+        gp.playSE(4);
+    }
+
+    private void updateBladeRush() {
+        if (isBladeRushActive == false) return;
+
+        invincible = true;
+        invincibleCounter = 0;
+        bladeRushCounter++;
+
+        if (bladeRushCounter % BLADE_RUSH_AFTERIMAGE_INTERVAL == 0) {
+            spawnBladeRushAfterimage();
+        }
+
+        int oldX = x;
+        int oldY = y;
+        x += (int)Math.round(Math.cos(bladeRushAngle) * BLADE_RUSH_SPEED);
+        y += (int)Math.round(Math.sin(bladeRushAngle) * BLADE_RUSH_SPEED);
+
+        collisionOn = false;
+        gp.cChecker.checkTile(this);
+        if (collisionOn == true) {
+            x = oldX;
+            y = oldY;
+            collisionOn = false;
+            endBladeRush();
+            return;
+        }
+
+        applyBladeRushHits();
+        parryBladeRushBullets();
+
+        if (bladeRushCounter >= BLADE_RUSH_DURATION) {
+            endBladeRush();
+        }
+    }
+
+    private void endBladeRush() {
+        isBladeRushActive = false;
+        bladeRushCounter = 0;
+        hitMonstersThisBladeRush.clear();
+        parriedBulletsThisBladeRush.clear();
+        invincible = true;
+        invincibleCounter = 50;
+    }
+
+    private void applyBladeRushHits() {
+        for (int i = 0; i < gp.monsterList.size(); i++) {
+            Monster m = gp.monsterList.get(i);
+            if (m.hp <= 0 || m.isBossDying() || hitMonstersThisBladeRush.contains(m)) continue;
+
+            if (bladeRushCapsuleIntersects(m.getBounds())) {
+                hitMonstersThisBladeRush.add(m);
+                m.hp -= BLADE_RUSH_DAMAGE;
+                gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, "-" + BLADE_RUSH_DAMAGE, Color.YELLOW));
+                m.stunCounter = BLADE_RUSH_STUN;
+            }
+        }
+    }
+
+    private void parryBladeRushBullets() {
+        for (int i = 0; i < gp.bulletList.size(); i++) {
+            Bullet b = gp.bulletList.get(i);
+            if (tryParryBullet(b)) {
+                gp.bulletList.remove(i);
+                i--;
+            }
+        }
     }
 
     public void update() {
@@ -167,26 +524,22 @@ public class Player extends Entity {
 
         if (shootCooldown > 0) shootCooldown--; 
         if (skillCooldown > 0) skillCooldown--;
+
+        updateBladeRushAfterimages();
+        updateBladeRush();
  
         if (isMeleeAttacking == true) {
-            int shieldSize = gp.tileSize * 3; 
-            Rectangle shieldArea = new Rectangle(x + 24 - shieldSize/2, y + 24 - shieldSize/2, shieldSize, shieldSize);
-
-            for (int i = 0; i < gp.bulletList.size(); i++) {
-                Bullet b = gp.bulletList.get(i);
-                if (b.isPlayerBullet == false && shieldArea.intersects(b.getBounds())) {
-                    gp.playSE(2); 
-                    gp.bulletList.remove(i); 
-                    i--; 
-                }
+            if (isMeleeAttackActiveFrame()) {
+                applySwordSlashHits();
+            }
+            if (isSwordParryActive()) {
+                parrySwordBullets();
             }
 
             meleeAttackCounter++;
             
             if (meleeAttackCounter >= attackCooldown) { 
-                isMeleeAttacking = false;
-                meleeAttackCounter = 0;
-                meleeHitbox.setBounds(0, 0, 0, 0); 
+                resetNormalMeleeAttack();
             }
         }
         
@@ -200,7 +553,7 @@ public class Player extends Entity {
 
         boolean isMoving = false;
         
-        if (keyH.upPressed || keyH.downPressed || keyH.leftPressed || keyH.rightPressed) {
+        if (isBladeRushActive == false && (keyH.upPressed || keyH.downPressed || keyH.leftPressed || keyH.rightPressed)) {
             isMoving = true;
         }
 
@@ -277,52 +630,16 @@ public class Player extends Entity {
                 }
                 
                 // Swordsman attack.
-                else if (classType == 1 && isMeleeAttacking == false) {
+                else if (classType == 1 && isMeleeAttacking == false && isBladeRushActive == false) {
                     isMeleeAttacking = true;
+                    meleeAttackCounter = 0;
+                    meleeAttackAngle = Math.atan2(targetWorldY - (y + gp.tileSize / 2), targetWorldX - (x + gp.tileSize / 2));
+                    trySwordAttackLunge();
+                    meleeHitbox.setBounds(0, 0, 0, 0);
+                    hitMonstersThisSwing.clear();
+                    parriedBulletsThisSwing.clear();
                     gp.playSE(2); 
-                    
-                    int attackRange = (int) (gp.tileSize * 0.5 * scaleFactor) + meleeRangeBonus; 
-                    double coneAngle = Math.PI / 2 + meleeAngleBonus;  
-                    
-                    meleeAttackAngle = Math.atan2(targetWorldY - (y + 24), targetWorldX - (x + 24));
-                    
-                    for (int i = 0; i < gp.monsterList.size(); i++) {
-                        Monster m = gp.monsterList.get(i);
-                        if (m.hp <= 0 || m.isBossDying()) continue;
-                        
-                        Rectangle mBounds = m.getBounds();
-                        int mCenterX = mBounds.x + (mBounds.width / 2);
-                        int mCenterY = mBounds.y + (mBounds.height / 2);
-                        int monsterRadius = mBounds.width / 2; 
-                        
-                        double distanceToCenter = Math.sqrt(Math.pow(mCenterX - (x + 24), 2) + Math.pow(mCenterY - (y + 24), 2));
-                        double distanceToEdge = distanceToCenter - monsterRadius;
-
-                        double angleToMonster = Math.atan2(mCenterY - (y + 24), mCenterX - (x + 24));
-                        double angleDifference = angleToMonster - meleeAttackAngle;
-                        
-                        while (angleDifference <= -Math.PI) angleDifference += Math.PI * 2;
-                        while (angleDifference > Math.PI) angleDifference -= Math.PI * 2;
-
-                        boolean isHit = false;
-                        
-                        // Close monsters still count as melee hits.
-                        if (distanceToCenter <= monsterRadius) {
-                            isHit = true; 
-                        } 
-                        else if (distanceToEdge <= attackRange && Math.abs(angleDifference) <= coneAngle / 2.0) {
-                            isHit = true; 
-                        }
-
-                        if (isHit) {
-                            m.hp -= meleeDamage; 
-                            gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, "-" + meleeDamage, Color.YELLOW));
-                            
-                            // Short hit stun.
-                            m.stunCounter = 15;
-                        }
-                    }
-                    shootCooldown = Math.max(20, attackCooldown);
+                    shootCooldown = Math.max(18, attackCooldown);
                 }
             } 
         } 
@@ -344,56 +661,25 @@ public class Player extends Entity {
                 gp.playSE(3);
             }
             else if (classType == 1) { 
-                isMeleeAttacking = true;
-                meleeAttackCounter = 0; 
-                gp.playSE(4);
-                
-                int ultimateSize = gp.tileSize * 8;
-                meleeHitbox.setBounds(x + 24 - ultimateSize / 2, y + 24 - ultimateSize / 2, ultimateSize, ultimateSize);
-                
-                for (int i = 0; i < gp.monsterList.size(); i++) {
-                    Monster m = gp.monsterList.get(i);
-                    if (m.hp <= 0 || m.isBossDying()) continue;
-
-                    if (meleeHitbox.intersects(m.getBounds())) {
-                        m.hp -= 15; 
-                        gp.floatingTextList.add(new FloatingText(gp, m.x, m.y, "-15", Color.YELLOW));
-                    }
-                }
+                startBladeRush(targetWorldX, targetWorldY);
             }
             skillCooldown = skillMaxCooldown; 
         }
     }
     
-    public void draw(Graphics2D g2) {
-        if (invincible == true) {
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f)); 
-        }
-
+    private BufferedImage getCurrentPlayerDrawImage() {
         BufferedImage image = null;
 
         try {
             // Melee attack animation has priority.
             if (classType == 1 && isMeleeAttacking == true) {
-                
-                double progress = (double) meleeAttackCounter / attackCooldown;
-                int attackFrameIndex = 0; 
-                
-                // Non-linear timing makes the swing feel snappier.
-                if (progress < 0.15) {
-                    attackFrameIndex = 0;
-                } else if (progress < 0.60) {
-                    double swingProgress = (progress - 0.15) / 0.45;
-                    attackFrameIndex = 1 + (int)(swingProgress * (attackFrames.length - 2));
-                } else {
-                    attackFrameIndex = attackFrames.length - 1; 
+                if (attackFrames != null && attackFrames.length > 0) {
+                    int attackFrameIndex = getMeleeAttackFrameIndex();
+                    if (attackFrameIndex >= attackFrames.length) {
+                        attackFrameIndex = attackFrames.length - 1;
+                    }
+                    image = attackFrames[attackFrameIndex];
                 }
-
-                if (attackFrameIndex >= attackFrames.length) {
-                    attackFrameIndex = attackFrames.length - 1;
-                }
-                
-                image = attackFrames[attackFrameIndex];
             } 
             // Then ranged attack animation.
             else if (classType == 0 && isShooting == true) {
@@ -417,6 +703,76 @@ public class Player extends Entity {
             spriteNum = 0; 
         }
 
+        return image;
+    }
+
+    private void drawBladeRushAfterimages(Graphics2D g2) {
+        if (bladeRushAfterimages.isEmpty()) return;
+
+        Composite oldComposite = g2.getComposite();
+
+        for (int i = 0; i < bladeRushAfterimages.size(); i++) {
+            DashAfterimage afterimage = bladeRushAfterimages.get(i);
+            if (afterimage.image == null || afterimage.maxLife <= 0) continue;
+
+            float alpha = 0.45f * ((float)afterimage.life / afterimage.maxLife);
+            if (alpha <= 0) continue;
+
+            int afterimageScreenX = afterimage.worldX - x + gp.player.screenX;
+            int afterimageScreenY = afterimage.worldY - y + gp.player.screenY;
+            int afterimageDrawHeight = (int)(gp.tileSize * scaleFactor);
+            double ratio = (double)afterimage.image.getWidth() / afterimage.image.getHeight();
+            int afterimageDrawWidth = (int)(afterimageDrawHeight * ratio);
+            int offsetX = (afterimageDrawWidth - gp.tileSize) / 2;
+            int offsetY = (afterimageDrawHeight - gp.tileSize) / 2;
+            int drawX = afterimageScreenX - offsetX;
+            int drawY = afterimageScreenY - offsetY;
+
+            if (afterimage.facingLeft) {
+                drawX += afterimageDrawWidth;
+                afterimageDrawWidth = -afterimageDrawWidth;
+            }
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g2.drawImage(afterimage.image, drawX, drawY, afterimageDrawWidth, afterimageDrawHeight, null);
+        }
+
+        g2.setComposite(oldComposite);
+    }
+
+    private void drawBladeRushStreak(Graphics2D g2, int playerCenterX, int playerCenterY) {
+        if (isBladeRushActive == false) return;
+
+        java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+        Composite oldComposite = g2.getComposite();
+        Stroke oldStroke = g2.getStroke();
+
+        float progress = Math.min(1f, (float)bladeRushCounter / Math.max(1, BLADE_RUSH_DURATION));
+        float alpha = Math.max(0.14f, 0.50f * (1f - progress * 0.55f));
+
+        g2.rotate(bladeRushAngle, playerCenterX, playerCenterY);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g2.setStroke(new BasicStroke(12, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(170, 235, 255));
+        g2.drawLine(playerCenterX - 72, playerCenterY, playerCenterX + 38, playerCenterY);
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(0.70f, alpha + 0.15f)));
+        g2.setStroke(new BasicStroke(4, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(245, 250, 255));
+        g2.drawLine(playerCenterX - 58, playerCenterY - 4, playerCenterX + 30, playerCenterY - 4);
+
+        g2.setStroke(oldStroke);
+        g2.setComposite(oldComposite);
+        g2.setTransform(oldTransform);
+    }
+
+    public void draw(Graphics2D g2) {
+        if (invincible == true) {
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        }
+
+        BufferedImage image = getCurrentPlayerDrawImage();
+
         // Keep the enlarged sprite centered on the hitbox.
         int drawX = gp.player.screenX; 
         int drawY = gp.player.screenY; 
@@ -439,6 +795,9 @@ public class Player extends Entity {
         int playerCenterX = gp.player.screenX + gp.tileSize / 2;
         int playerCenterY = gp.player.screenY + gp.tileSize / 2;
 
+        drawBladeRushAfterimages(g2);
+        drawBladeRushStreak(g2, playerCenterX, playerCenterY);
+
         // Face the mouse cursor.
         if (gp.mouseH.mouseX < playerCenterX) { 
             drawX = drawX + currentDrawWidth; 
@@ -460,50 +819,40 @@ public class Player extends Entity {
         g2.drawLine(playerCenterX, playerCenterY, gp.mouseH.mouseX, gp.mouseH.mouseY);
 
         // Swordsman swing effect.
-        if (classType == 1 && isMeleeAttacking == true) {
-            
+        if (classType == 1 && isMeleeAttacking == true && slashVFX != null && slashVFX.length > 0) {
             double progress = (double) meleeAttackCounter / attackCooldown;
             int vfxIndex = (int) (progress * slashVFX.length);
             if (vfxIndex >= slashVFX.length) vfxIndex = slashVFX.length - 1;
             BufferedImage currentSlash = slashVFX[vfxIndex];
 
             java.awt.geom.AffineTransform oldTransform = g2.getTransform(); 
+            Composite oldComposite = g2.getComposite();
             g2.rotate(meleeAttackAngle, playerCenterX, playerCenterY);
 
-            // Real hit range.
-            int attackRange = (int) (gp.tileSize * 0.5 * scaleFactor) + meleeRangeBonus; 
-            
-            // Bigger visual range for the slash sprite.
-            int visualRange = (int) (gp.tileSize * 0.8 * scaleFactor) + meleeRangeBonus; 
-            
-            double totalAngleRadian = Math.PI / 2 + meleeAngleBonus;
-            int totalAngleDeg = (int) Math.toDegrees(totalAngleRadian);
-
-            int windAlpha = 150 - (150 * meleeAttackCounter / attackCooldown);
-            if (windAlpha < 0) windAlpha = 0;
-            g2.setColor(new Color(255, 200, 100, windAlpha)); 
-            
-            int startAngle = -totalAngleDeg / 2; 
-            
-            // Wind arc shows the real damage range.
-            g2.fillArc(playerCenterX - attackRange, playerCenterY - attackRange, 
-                       attackRange * 2, attackRange * 2, 
-                       startAngle, totalAngleDeg); 
-
             if (currentSlash != null) {
-                
-                int vfxHeight = (int) (visualRange * totalAngleRadian * 1.2); 
-                int vfxWidth = (int) (visualRange * 1.2); 
-                
-                int vfxX = playerCenterX - (int)(visualRange * 0.2); 
+                float slashAlpha = isMeleeAttackActiveFrame() ? 0.70f : 0.35f;
+                int vfxWidth = getSwordReach() + 24;
+                int vfxHeight = Math.max(48, getSwordWidth() + 28);
+                int vfxX = playerCenterX + 8;
                 int vfxY = playerCenterY - (vfxHeight / 2); 
                 
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, slashAlpha));
                 g2.drawImage(currentSlash, vfxX, vfxY, vfxWidth, vfxHeight, null);
+            }
+
+            g2.setComposite(oldComposite);
+
+            if (DEBUG_SWORD_HITBOX && isMeleeAttackActiveFrame()) {
+                Stroke oldStroke = g2.getStroke();
+                g2.setStroke(new BasicStroke(getSwordWidth(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.setColor(new Color(0, 255, 255, 100));
+                g2.drawLine(playerCenterX + 12, playerCenterY, playerCenterX + getSwordReach(), playerCenterY);
+                g2.setStroke(oldStroke);
             }
 
             g2.setTransform(oldTransform); 
         }
-        
+
     }
 
     public Rectangle getBounds() {

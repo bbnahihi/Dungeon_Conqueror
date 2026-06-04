@@ -60,6 +60,7 @@ public class UpgradeManager {
         register(new Upgrade(7, "Swift Wrist", "Faster Slashes", Color.ORANGE) {
             public void apply(GamePanel gp) {
                 gp.player.attackCooldown -= 5;
+                if (gp.player.attackCooldown < 18) gp.player.attackCooldown = 18;
             }
         });
 
@@ -88,15 +89,21 @@ public class UpgradeManager {
             }
         });
 
-        register(new Upgrade(12, "Giant Sword", "Longer Slash Range", Color.LIGHT_GRAY) {
+        register(new Upgrade(12, "Giant Sword", "+Sword Reach", Color.LIGHT_GRAY) {
             public void apply(GamePanel gp) {
-                gp.player.meleeRangeBonus += gp.tileSize;
+                gp.player.meleeRangeBonus += 20;
             }
         });
 
-        register(new Upgrade(13, "Whirlwind Slash", "180 Degree Arc", Color.ORANGE) {
+        register(new Upgrade(13, "Wide Slash", "+Sword Width", Color.ORANGE) {
             public void apply(GamePanel gp) {
-                gp.player.meleeAngleBonus = Math.PI / 2;
+                gp.player.meleeWidthBonus += 14;
+            }
+        });
+
+        register(new Upgrade(14, "Blade Guard", "Reflect Parried Bullets", Color.CYAN) {
+            public void apply(GamePanel gp) {
+                gp.player.swordReflectBullets = true;
             }
         });
     }
@@ -131,8 +138,11 @@ public class UpgradeManager {
             if (gp.player.meleeRangeBonus == 0) {
                 pool.add(12);
             }
-            if (gp.player.meleeAngleBonus == 0) {
+            if (gp.player.meleeWidthBonus == 0) {
                 pool.add(13);
+            }
+            if (gp.player.swordReflectBullets == false) {
+                pool.add(14);
             }
         }
 

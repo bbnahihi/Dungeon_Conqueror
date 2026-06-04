@@ -397,6 +397,12 @@ public class GamePanel extends JPanel implements Runnable {
 
                 // Enemy bullets damage the player here.
                 if (b.isPlayerBullet == false) {
+                    if (player.tryParryBullet(b)) {
+                        bulletList.remove(i);
+                        i--;
+                        continue;
+                    }
+
                     if (b.getBounds().intersects(player.getBounds()) && player.invincible == false) {
                         player.hp -= b.damage;
                         statsTracker.recordDamageTaken(b.damage);
@@ -553,20 +559,7 @@ public class GamePanel extends JPanel implements Runnable {
                 itemList.get(i).draw(g2);
             }
 
-            player.draw(g2); 
-        if (player.classType == 1 && player.isMeleeAttacking) {
-                
-            if (player.meleeHitbox.width > tileSize * 2) {
-                int screenHitX = player.meleeHitbox.x - player.x + player.screenX;
-                int screenHitY = player.meleeHitbox.y - player.y + player.screenY;
-                    
-                g2.setColor(new Color(255, 215, 0, 150)); 
-                g2.fillOval(screenHitX, screenHitY, player.meleeHitbox.width, player.meleeHitbox.height);
-                    
-                g2.setColor(Color.ORANGE);
-                g2.drawOval(screenHitX, screenHitY, player.meleeHitbox.width, player.meleeHitbox.height);
-            } 
-        }
+            player.draw(g2);
 
             for (int i = 0; i < monsterList.size(); i++) {
                 monsterList.get(i).draw(g2);
@@ -758,7 +751,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Move away from the portal before loading the next level.
         player.x = tileSize * 15;
         player.y = tileSize * 15;
-        player.isMeleeAttacking = false; 
+        player.resetSwordCombatState();
 
         currentLevel++;
         statsTracker.setLevelReached(currentLevel);
@@ -1147,7 +1140,7 @@ public class GamePanel extends JPanel implements Runnable {
             player.x = tileSize * 15;
             player.y = tileSize * 15;
         }
-        player.isMeleeAttacking = false; 
+        player.resetSwordCombatState();
         player.invincible = true;
         player.invincibleCounter = 0;
         
