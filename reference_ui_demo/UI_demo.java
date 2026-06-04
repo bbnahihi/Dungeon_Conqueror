@@ -7,10 +7,8 @@ import game.system.Upgrade;
 
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
-import java.awt.Paint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -43,7 +41,6 @@ public class UI {
 
     public UI(GamePanel gp) {
         this.gp = gp;
-
         titleFont = new Font("SansSerif", Font.BOLD, 48);
         headingFont = new Font("SansSerif", Font.BOLD, 34);
         buttonFont = new Font("SansSerif", Font.BOLD, 22);
@@ -65,38 +62,26 @@ public class UI {
     }
 
     private void drawMenuBackground(Graphics2D g2, int overlayAlpha) {
-        Paint oldPaint = g2.getPaint();
-
         if (menuBackground != null) {
             g2.drawImage(menuBackground, 0, 0, gp.screenWidth, gp.screenHeight, null);
         } else {
-            g2.setPaint(new GradientPaint(0, 0, new Color(28, 32, 52),
-                    0, gp.screenHeight, new Color(8, 10, 18)));
+            g2.setPaint(new GradientPaint(0, 0, new Color(28, 32, 52), 0, gp.screenHeight, new Color(8, 10, 18)));
             g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
         }
-
         if (overlayAlpha > 0) {
             g2.setColor(new Color(0, 0, 0, overlayAlpha));
             g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
         }
-
-        g2.setPaint(oldPaint);
     }
 
     private void drawVignette(Graphics2D g2) {
-        Paint oldPaint = g2.getPaint();
-
         int cx = gp.screenWidth / 2;
         int cy = gp.screenHeight / 2;
         int r = Math.max(gp.screenWidth, gp.screenHeight);
-        g2.setPaint(new GradientPaint(cx, cy, new Color(0, 0, 0, 0),
-                cx, cy + r / 2, new Color(0, 0, 0, 140)));
+        g2.setPaint(new GradientPaint(cx, cy, new Color(0, 0, 0, 0), cx, cy + r / 2, new Color(0, 0, 0, 140)));
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
-        g2.setPaint(new GradientPaint(cx, cy - r / 3, new Color(0, 0, 0, 100),
-                cx, cy, new Color(0, 0, 0, 0)));
+        g2.setPaint(new GradientPaint(cx, cy - r / 3, new Color(0, 0, 0, 100), cx, cy, new Color(0, 0, 0, 0)));
         g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight / 2);
-
-        g2.setPaint(oldPaint);
     }
 
     private void drawPanel(Graphics2D g2, int x, int y, int width, int height) {
@@ -111,18 +96,14 @@ public class UI {
     private void drawShadowedText(Graphics2D g2, String text, int centerX, int baselineY,
                                   Font font, Color fill, Color shadow) {
         g2.setFont(font);
-        FontMetrics metrics = g2.getFontMetrics();
-        int x = centerX - metrics.stringWidth(text) / 2;
+        int w = g2.getFontMetrics().stringWidth(text);
+        int x = centerX - w / 2;
         if (shadow != null) {
             g2.setColor(shadow);
             g2.drawString(text, x + 2, baselineY + 2);
         }
         g2.setColor(fill);
         g2.drawString(text, x, baselineY);
-    }
-
-    private void drawButton(Graphics2D g2, Rectangle bounds, String text, boolean selected) {
-        drawButton(g2, bounds, text, selected, gold);
     }
 
     private void drawButton(Graphics2D g2, Rectangle bounds, String text, boolean selected, Color accent) {
@@ -142,14 +123,13 @@ public class UI {
         g2.setColor(border);
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width - 1, bounds.height - 1, 14, 14);
 
-        g2.setFont(buttonFont);
         if (selected) {
             g2.setColor(gold);
-            g2.drawString(">", bounds.x + 14, bounds.y + bounds.height / 2 + 7);
+            g2.drawString("▶", bounds.x + 14, bounds.y + bounds.height / 2 + 7);
         }
 
-        FontMetrics metrics = g2.getFontMetrics(buttonFont);
-        int textY = bounds.y + (bounds.height + metrics.getAscent() - metrics.getDescent()) / 2 - 2;
+        int textY = bounds.y + (bounds.height + g2.getFontMetrics(buttonFont).getAscent()
+                - g2.getFontMetrics(buttonFont).getDescent()) / 2 - 2;
         drawShadowedText(g2, text, bounds.x + bounds.width / 2 + (selected ? 10 : 0), textY,
                 buttonFont, active ? Color.WHITE : textLight, new Color(0, 0, 0, 160));
     }
@@ -168,22 +148,24 @@ public class UI {
         return centeredRowBounds(yPositions[index], 480, 44);
     }
 
+    /** Title menu: selected row = blue pill; others = plain dimmed text (reference layout). */
     private void drawTitleMenuItem(Graphics2D g2, String text, int baselineY, int index) {
-        Rectangle hoverBounds = getTitleMenuBounds(index);
         boolean selected = commandNum == index;
-        boolean hover = isMouseOver(hoverBounds);
+        boolean hover = isMouseOver(getTitleMenuBounds(index));
         int centerX = gp.screenWidth / 2;
 
         g2.setFont(buttonFont);
-        FontMetrics metrics = g2.getFontMetrics();
+        var fm = g2.getFontMetrics();
+        int textW = fm.stringWidth(text);
 
         if (selected) {
-            int padX = 34;
+            int padX = 28;
             int padY = 8;
-            int boxW = metrics.stringWidth(text) + padX * 2 + 22;
-            int boxH = metrics.getHeight() + padY * 2;
+            int chevronW = 18;
+            int boxW = textW + padX * 2 + chevronW;
+            int boxH = fm.getHeight() + padY * 2;
             int boxX = centerX - boxW / 2;
-            int boxY = baselineY - metrics.getAscent() - padY;
+            int boxY = baselineY - fm.getAscent() - padY;
 
             Color fill = new Color(52, 88, 138, 235);
             Color outer = new Color(38, 68, 108);
@@ -198,6 +180,7 @@ public class UI {
 
             g2.setColor(new Color(100, 170, 255));
             g2.drawString(">", boxX + 16, baselineY);
+
             drawShadowedText(g2, text, centerX + 6, baselineY, buttonFont, Color.WHITE, Color.BLACK);
         } else {
             Color dim = hover ? new Color(215, 220, 230) : new Color(178, 184, 196);
@@ -220,7 +203,6 @@ public class UI {
         int padding = 40;
         int rowX = panelX + padding;
         int rowW = panelW - padding * 2;
-
         if (index == 0) return new Rectangle(rowX, OPTIONS_PANEL_Y + 138, rowW, 64);
         if (index == 1) return new Rectangle(rowX, OPTIONS_PANEL_Y + 228, rowW, 64);
         if (index == 2) return centeredRowBounds(OPTIONS_PANEL_Y + 332, 210, 46);
@@ -253,27 +235,19 @@ public class UI {
     }
 
     public Rectangle getGameOverRestartBounds() {
-        return centeredRowBounds(gp.screenHeight - 58, 560, 58);
+        return centeredRowBounds(gp.screenHeight - 72, 480, 48);
     }
 
     public Rectangle getGameWinMainMenuBounds() {
-        return centeredRowBounds(gp.screenHeight - 58, 560, 58);
+        return centeredRowBounds(288, 410, 52);
     }
 
     public void draw(Graphics2D g2) {
         applyRendering(g2);
-
         if (gp.gameState == gp.playState || gp.gameState == gp.pauseState) {
             drawHud(g2);
         }
-
-        if (gp.gameState == gp.titleState) {
-            drawTitleScreen(g2);
-        } else if (gp.gameState == gp.characterState) {
-            drawCharacterScreen(g2);
-        } else if (gp.gameState == gp.optionsState) {
-            drawOptionsScreen(g2);
-        }
+        // Full-screen menus are drawn from GamePanel.paintComponent.
     }
 
     private void drawHud(Graphics2D g2) {
@@ -298,18 +272,16 @@ public class UI {
         int barX = x + inset;
         int barW = w - inset * 2;
         int hpBarY = y + 36;
-        float hpRatio = gp.player.maxHp <= 0 ? 0f : (float) gp.player.hp / gp.player.maxHp;
+        float hpRatio = gp.player.maxHp <= 0 ? 0 : (float) gp.player.hp / gp.player.maxHp;
         Color hpEnd = hpRatio > 0.35f ? new Color(220, 55, 65) : new Color(255, 140, 45);
-        drawGradientBar(g2, barX, hpBarY, barW, 18, hpRatio,
-                new Color(30, 32, 42), hpEnd, "", 0, 0);
+        drawGradientBar(g2, barX, hpBarY, barW, 18, hpRatio, new Color(30, 32, 42), hpEnd, "", 0, 0);
 
         g2.setFont(smallFont);
         g2.setColor(textLight);
         g2.drawString("HP " + gp.player.hp + "/" + gp.player.maxHp, barX, hpBarY + 34);
 
         int skillBarY = y + h - 24;
-        float skillRatio = gp.player.skillCooldown == 0 || gp.player.skillMaxCooldown <= 0
-                ? 1f
+        float skillRatio = gp.player.skillCooldown == 0 ? 1f
                 : 1f - (float) gp.player.skillCooldown / gp.player.skillMaxCooldown;
         Color skillEnd = gp.player.skillCooldown == 0 ? new Color(70, 200, 255) : new Color(255, 165, 50);
         int skillBarW = 128;
@@ -355,38 +327,31 @@ public class UI {
 
     private void drawGradientBar(Graphics2D g2, int x, int y, int w, int h, float ratio,
                                  Color track, Color fillEnd, String label, int labelX, int labelY) {
-        Paint oldPaint = g2.getPaint();
-        float clampedRatio = Math.max(0f, Math.min(1f, ratio));
-
+        ratio = Math.max(0f, Math.min(1f, ratio));
         g2.setColor(track);
         g2.fillRoundRect(x, y, w, h, 8, 8);
-        int fillW = Math.max(0, (int) (w * clampedRatio));
+        int fillW = Math.max(0, (int) (w * ratio));
         if (fillW > 0) {
             g2.setPaint(new GradientPaint(x, y, fillEnd.brighter(), x + fillW, y, fillEnd));
             g2.fillRoundRect(x, y, fillW, h, 8, 8);
         }
-        g2.setPaint(oldPaint);
         g2.setColor(new Color(255, 255, 255, 90));
         g2.drawRoundRect(x, y, w - 1, h - 1, 8, 8);
-
-        if (label != null && label.length() > 0) {
-            g2.setFont(smallFont);
-            g2.setColor(textLight);
-            g2.drawString(label, labelX, labelY);
-        }
+        g2.setFont(smallFont);
+        g2.setColor(textLight);
+        g2.drawString(label, labelX, labelY);
     }
 
     private void drawBossHp(Graphics2D g2) {
         for (Monster m : gp.monsterList) {
             if (m.type != 3) continue;
-
             int barW = 440;
             int barH = 22;
             int barX = gp.screenWidth / 2 - barW / 2;
             int barY = gp.screenHeight - 62;
             drawShadowedText(g2, "DUNGEON OVERLORD", gp.screenWidth / 2, barY - 12,
                     new Font("SansSerif", Font.BOLD, 20), new Color(255, 130, 90), Color.BLACK);
-            float ratio = m.maxHp <= 0 ? 0f : (float) m.hp / m.maxHp;
+            float ratio = m.maxHp <= 0 ? 0 : (float) m.hp / m.maxHp;
             drawGradientBar(g2, barX, barY, barW, barH, ratio,
                     new Color(40, 18, 22), new Color(200, 40, 50), "", 0, 0);
             g2.setColor(new Color(255, 200, 120, 80));
@@ -400,7 +365,6 @@ public class UI {
             levelClearCounter = 0;
             return;
         }
-
         levelClearCounter++;
         if (levelClearCounter >= 180) return;
 
@@ -441,9 +405,9 @@ public class UI {
         drawClassCard(g2, getCharacterChoiceBounds(0), "RANGER",
                 "Ranged bow attacks", new Color(80, 200, 120), isMouseOver(getCharacterChoiceBounds(0)));
         drawClassCard(g2, getCharacterChoiceBounds(1), "SWORDSMAN",
-                "Fast melee slashes", new Color(255, 160, 90), isMouseOver(getCharacterChoiceBounds(1)));
+                "Melee cone slashes", new Color(255, 160, 90), isMouseOver(getCharacterChoiceBounds(1)));
 
-        drawShadowedText(g2, "Press 1 or 2 - ESC to go back",
+        drawShadowedText(g2, "Press 1 or 2  •  ESC to go back",
                 gp.screenWidth / 2, 548, smallFont, textLight, null);
     }
 
@@ -469,7 +433,6 @@ public class UI {
         applyRendering(g2);
         drawMenuBackground(g2, 130);
         drawVignette(g2);
-
         int panelW = 540;
         int panelH = OPTIONS_PANEL_H;
         int panelX = gp.screenWidth / 2 - panelW / 2;
@@ -481,7 +444,7 @@ public class UI {
         drawVolumeOption(g2, getOptionsRowBounds(1), getSfxVolumeBounds(), "Effects", gp.seVolume, commandNum == 1);
         drawButton(g2, getOptionsRowBounds(2), "BACK", commandNum == 2, goldDim);
 
-        drawShadowedText(g2, "Left/Right adjust volume - click bars",
+        drawShadowedText(g2, "← → adjust volume  •  click bars",
                 gp.screenWidth / 2, panelY + panelH + 36, smallFont, new Color(160, 170, 190), null);
     }
 
@@ -492,9 +455,13 @@ public class UI {
         drawPanel(g2, 144, 118, 480, 408);
         drawShadowedText(g2, "PAUSED", gp.screenWidth / 2, 178, headingFont, gold, Color.BLACK);
 
+        Color[] accents = {
+                new Color(100, 220, 140), new Color(255, 200, 80),
+                new Color(160, 140, 255), new Color(120, 180, 255), new Color(255, 90, 90)
+        };
         String[] labels = {"Resume", "Restart", "Options", "Main Menu", "Quit"};
         for (int i = 0; i < labels.length; i++) {
-            drawButton(g2, getPauseMenuBounds(i), labels[i], commandNum == i, goldDim);
+            drawButton(g2, getPauseMenuBounds(i), labels[i], commandNum == i, accents[i]);
         }
     }
 
@@ -541,55 +508,41 @@ public class UI {
         applyRendering(g2);
         drawMenuBackground(g2, 140);
         drawVignette(g2);
-
         int panelW = 620;
         int panelH = 452;
         int panelX = gp.screenWidth / 2 - panelW / 2;
         int panelY = 62;
         drawPanel(g2, panelX, panelY, panelW, panelH);
-        drawShadowedText(g2, gp.storyManager.getTitle(), gp.screenWidth / 2, panelY + 58,
-                headingFont, gold, Color.BLACK);
+        drawShadowedText(g2, gp.storyManager.getTitle(), gp.screenWidth / 2, panelY + 58, headingFont, gold, Color.BLACK);
 
         Font storyFont = new Font("SansSerif", Font.PLAIN, 18);
         int textX = panelX + 42;
         int textY = panelY + 104;
-        int textW = panelW - 84;
-        int lineHeight = 24;
-
-        String[] lines = gp.storyManager.getLines();
-        for (int i = 0; i < lines.length; i++) {
-            textY = drawWrappedStoryLine(g2, lines[i], textX, textY, textW, lineHeight, storyFont);
+        for (String line : gp.storyManager.getLines()) {
+            textY = drawWrappedStoryLine(g2, line, textX, textY, panelW - 84, 24, storyFont);
         }
-
         drawShadowedText(g2, "Press ENTER or click to continue",
                 gp.screenWidth / 2, panelY + panelH - 34, smallFont, textLight, null);
     }
 
     private int drawWrappedStoryLine(Graphics2D g2, String text, int x, int y, int maxWidth,
                                      int lineHeight, Font font) {
-        if (text.length() == 0) {
-            return y + lineHeight / 2;
-        }
-
+        if (text.isEmpty()) return y + lineHeight / 2;
         g2.setFont(font);
         g2.setColor(textLight);
         String[] words = text.split(" ");
         String line = "";
-
-        for (int i = 0; i < words.length; i++) {
-            String testLine = line.length() == 0 ? words[i] : line + " " + words[i];
-            if (g2.getFontMetrics().stringWidth(testLine) > maxWidth && line.length() > 0) {
+        for (String word : words) {
+            String test = line.isEmpty() ? word : line + " " + word;
+            if (g2.getFontMetrics().stringWidth(test) > maxWidth && !line.isEmpty()) {
                 g2.drawString(line, x, y);
                 y += lineHeight;
-                line = words[i];
+                line = word;
             } else {
-                line = testLine;
+                line = test;
             }
         }
-
-        if (line.length() > 0) {
-            g2.drawString(line, x, y);
-        }
+        if (!line.isEmpty()) g2.drawString(line, x, y);
         return y + lineHeight + 4;
     }
 
@@ -621,35 +574,28 @@ public class UI {
 
         int cx = gp.screenWidth / 2;
         drawShadowedText(g2, "GAME OVER", cx, 108, gameOverFont, scoreGold, Color.BLACK);
-        drawShadowedText(g2, "SCORE: " + gp.score + "   |   BEST: " + gp.bestScore,
-                cx, 158, scoreFont, scoreGold, Color.BLACK);
+
+        String scoreLine = "SCORE: " + gp.score + "   |   BEST: " + gp.bestScore;
+        drawShadowedText(g2, scoreLine, cx, 158, scoreFont, scoreGold, Color.BLACK);
 
         drawRunStats(g2, 248);
 
-        Color restartColor = isMouseOver(getGameOverRestartBounds()) ? Color.WHITE : new Color(210, 214, 222);
-        drawShadowedText(g2, "PRESS R TO RESTART", cx, gp.screenHeight - 58,
-                restartFont, restartColor, Color.BLACK);
+        Color restartColor = isMouseOver(getGameOverRestartBounds())
+                ? Color.WHITE : new Color(210, 214, 222);
+        drawShadowedText(g2, "PRESS R TO RESTART", cx, gp.screenHeight - 58, restartFont, restartColor, Color.BLACK);
     }
 
     public void drawGameWinScreen(Graphics2D g2) {
         applyRendering(g2);
-        drawGameOverOverlay(g2);
-        drawGoldScreenBorder(g2);
-
-        Font winFont = new Font("SansSerif", Font.BOLD, 54);
-        Font scoreFont = new Font("SansSerif", Font.BOLD, 24);
-        Font actionFont = new Font("SansSerif", Font.BOLD, 28);
-
-        int cx = gp.screenWidth / 2;
-        drawShadowedText(g2, "VICTORY!", cx, 108, winFont, gold, Color.BLACK);
+        g2.setColor(new Color(0, 0, 0, 155));
+        g2.fillRect(0, 0, gp.screenWidth, gp.screenHeight);
+        drawPanel(g2, 114, 82, 540, 400);
+        drawShadowedText(g2, "VICTORY!", gp.screenWidth / 2, 148, titleFont, gold, Color.BLACK);
         drawShadowedText(g2, "FINAL SCORE: " + gp.score + "   |   BEST: " + gp.bestScore,
-                cx, 158, scoreFont, gold, Color.BLACK);
-
-        drawRunStats(g2, 248);
-
-        Color actionColor = isMouseOver(getGameWinMainMenuBounds()) ? Color.WHITE : new Color(210, 214, 222);
-        drawShadowedText(g2, "PRESS ENTER FOR MAIN MENU", cx, gp.screenHeight - 58,
-                actionFont, actionColor, Color.BLACK);
+                gp.screenWidth / 2, 198, buttonFont, gold, Color.BLACK);
+        drawButton(g2, getGameWinMainMenuBounds(), "PRESS ENTER FOR MAIN MENU",
+                isMouseOver(getGameWinMainMenuBounds()), gold);
+        drawRunStats(g2, 286);
     }
 
     private void drawRunStats(Graphics2D g2, int startY) {
@@ -657,11 +603,9 @@ public class UI {
         Font statFont = new Font("SansSerif", Font.BOLD, 18);
         g2.setFont(statFont);
         g2.setColor(Color.WHITE);
-
         int leftX = gp.screenWidth / 2 - 248;
         int rightX = gp.screenWidth / 2 + 32;
         int rowGap = 28;
-
         g2.drawString("Enemies Defeated: " + stats.getEnemiesKilled(), leftX, startY);
         g2.drawString("Items Collected: " + stats.getItemsCollected(), rightX, startY);
         g2.drawString("Damage Taken: " + stats.getDamageTaken(), leftX, startY + rowGap);
@@ -678,7 +622,6 @@ public class UI {
         g2.fillRoundRect(rowBounds.x, rowBounds.y, rowBounds.width, rowBounds.height, 12, 12);
         g2.setColor(selected || hover ? gold : new Color(200, 200, 210, 120));
         g2.drawRoundRect(rowBounds.x, rowBounds.y, rowBounds.width - 1, rowBounds.height - 1, 12, 12);
-
         g2.setFont(buttonFont);
         g2.setColor(textLight);
         g2.drawString(label, rowBounds.x + 22, rowBounds.y + 43);
@@ -686,17 +629,13 @@ public class UI {
     }
 
     private void drawVolumeBar(Graphics2D g2, Rectangle bounds, int volume) {
-        Paint oldPaint = g2.getPaint();
-
         g2.setColor(new Color(20, 22, 32, 220));
         g2.fillRoundRect(bounds.x, bounds.y, bounds.width, bounds.height, 10, 10);
         int volumeWidth = 30 * volume;
         if (volumeWidth > 0) {
-            g2.setPaint(new GradientPaint(bounds.x, bounds.y, gold.brighter(),
-                    bounds.x + volumeWidth, bounds.y, gold));
+            g2.setPaint(new GradientPaint(bounds.x, bounds.y, gold.brighter(), bounds.x + volumeWidth, bounds.y, gold));
             g2.fillRoundRect(bounds.x, bounds.y, volumeWidth, bounds.height, 10, 10);
         }
-        g2.setPaint(oldPaint);
         g2.setColor(new Color(255, 255, 255, 140));
         g2.drawRoundRect(bounds.x, bounds.y, bounds.width - 1, bounds.height - 1, 10, 10);
         for (int i = 1; i < 5; i++) {
