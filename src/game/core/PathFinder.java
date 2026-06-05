@@ -1,5 +1,6 @@
 package game.core;
 
+import java.awt.Rectangle;
 import java.util.ArrayList;
 
 public class PathFinder {
@@ -45,12 +46,20 @@ public class PathFinder {
         currentNode = startNode;
         goalNode = node[goalCol][goalRow];
         openList.add(currentNode);
+        boolean useTileCollision = gp.isNormalBackgroundMapActive() == false;
 
         // Mark wall tiles as blocked.
         for (int col = 0; col < gp.maxWorldCol; col++) {
             for (int row = 0; row < gp.maxWorldRow; row++) {
-                int tileNum = gp.tileM.mapTileNum[col][row];
-                if (gp.tileM.tile[tileNum] != null && gp.tileM.tile[tileNum].collision == true) {
+                if (useTileCollision) {
+                    int tileNum = gp.tileM.mapTileNum[col][row];
+                    if (gp.tileM.tile[tileNum] != null && gp.tileM.tile[tileNum].collision == true) {
+                        node[col][row].solid = true;
+                    }
+                }
+
+                Rectangle tileWorldArea = new Rectangle(col * gp.tileSize, row * gp.tileSize, gp.tileSize, gp.tileSize);
+                if (gp.collidesWithNormalMapObstacle(tileWorldArea, false)) {
                     node[col][row].solid = true;
                 }
             }

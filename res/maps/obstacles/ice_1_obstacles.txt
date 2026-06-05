@@ -1,0 +1,10 @@
+# id x y w h movement projectile
+ice_ridge_north 560 215 320 75 true true
+crystal_cluster_nw 255 360 145 120 true true
+crystal_cluster_ne 1045 360 145 120 true true
+frozen_pool_west 140 680 205 115 true true
+ice_boulder_east 1090 695 190 100 true true
+snow_bank_sw 330 1055 185 110 true true
+snow_bank_se 930 1050 185 110 true true
+ice_shelf_south 575 1220 300 70 true true
+small_crystal_cover 710 900 95 80 true true

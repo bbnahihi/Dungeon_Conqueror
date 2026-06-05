@@ -1,0 +1,10 @@
+# id x y w h movement projectile
+north_ruin_wall 560 220 320 75 true true
+cactus_cluster_nw 240 355 140 120 true true
+rock_cluster_ne 1040 355 155 120 true true
+dry_well_west 155 700 180 110 true true
+dune_east 1085 690 205 110 true true
+ruin_sw 330 1050 185 120 true true
+cactus_cluster_se 960 1050 160 120 true true
+south_ruin_wall 595 1215 260 75 true true
+small_rock_cover 700 895 95 80 true true

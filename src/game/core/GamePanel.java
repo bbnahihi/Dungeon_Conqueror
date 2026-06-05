@@ -20,14 +20,21 @@ import game.ui.UI;
 
 import javax.swing.JPanel;
 import javax.imageio.ImageIO;
+import java.awt.AlphaComposite;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.io.*;
 public class GamePanel extends JPanel implements Runnable {
     
@@ -77,8 +84,20 @@ public class GamePanel extends JPanel implements Runnable {
     private static final int PORTAL_FRAME_COUNT = 8;
     private static final int PORTAL_FRAME_DELAY = 6;
     private static final boolean DEBUG_BOSS_COVER_HITBOX = false;
+    private static final boolean DEBUG_NORMAL_MAP_OBSTACLES = false;
+    private BufferedImage forestBackgroundImage;
+    private BufferedImage iceBackgroundImage;
+    private BufferedImage desertBackgroundImage;
     private ArrayList<BossStageDecoration> bossStageDecorations = new ArrayList<>();
     private ArrayList<BossArenaCover> bossArenaCovers = new ArrayList<>();
+    private ArrayList<NormalMapObstacle> normalMapObstacles = new ArrayList<>();
+    private ArrayList<MapProp> normalMapProps = new ArrayList<>();
+    private Map<String, MapPropDefinition> propDefinitions = new HashMap<>();
+    private Set<String> warnedNormalObstacleFallbacks = new HashSet<>();
+    private Set<String> warnedMapPropIssues = new HashSet<>();
+    private String loadedPropDefinitionPath = null;
+    private boolean bossPropLayerActive = false;
+    private boolean bossCoverFallbackActive = false;
     private BufferedImage brokenPedestalCoverImage;
     private BufferedImage rubblePileCoverImage;
     private BufferedImage purpleCrystalCoverImage;
@@ -118,6 +137,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         gameState = titleState;
         loadBossArenaImage();
+        loadNormalMapBackgrounds();
         loadPortalImage();
         loadBossStageDecorations();
         loadBossArenaCoverImages();
@@ -161,18 +181,115 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    private static class NormalMapObstacle {
+        String id;
+        Rectangle worldHitbox;
+        boolean blocksMovement;
+        boolean blocksProjectiles;
+        String source;
+
+        NormalMapObstacle(String id, Rectangle worldHitbox, boolean blocksMovement, boolean blocksProjectiles) {
+            this(id, worldHitbox, blocksMovement, blocksProjectiles, "obstacle");
+        }
+
+        NormalMapObstacle(String id, Rectangle worldHitbox, boolean blocksMovement, boolean blocksProjectiles,
+                          String source) {
+            this.id = id;
+            this.worldHitbox = worldHitbox;
+            this.blocksMovement = blocksMovement;
+            this.blocksProjectiles = blocksProjectiles;
+            this.source = source;
+        }
+    }
+
+    private static class MapPropDefinition {
+        String type;
+        String imagePath;
+        BufferedImage image;
+        double scale;
+        String collisionMode;
+        double shrinkX;
+        double shrinkY;
+        boolean blocksMovement;
+        boolean blocksProjectiles;
+
+        MapPropDefinition(String type, String imagePath, BufferedImage image, double scale, String collisionMode,
+                          double shrinkX, double shrinkY, boolean blocksMovement, boolean blocksProjectiles) {
+            this.type = type;
+            this.imagePath = imagePath;
+            this.image = image;
+            this.scale = scale;
+            this.collisionMode = collisionMode;
+            this.shrinkX = shrinkX;
+            this.shrinkY = shrinkY;
+            this.blocksMovement = blocksMovement;
+            this.blocksProjectiles = blocksProjectiles;
+        }
+    }
+
+    private static class MapProp {
+        String id;
+        String type;
+        BufferedImage image;
+        int worldX;
+        int worldY;
+        int imageWidth;
+        int imageHeight;
+        int drawWidth;
+        int drawHeight;
+        double scale;
+        Rectangle collisionRect;
+
+        MapProp(String id, String type, BufferedImage image, int worldX, int worldY,
+                int imageWidth, int imageHeight, int drawWidth, int drawHeight,
+                double scale, Rectangle collisionRect) {
+            this.id = id;
+            this.type = type;
+            this.image = image;
+            this.worldX = worldX;
+            this.worldY = worldY;
+            this.imageWidth = imageWidth;
+            this.imageHeight = imageHeight;
+            this.drawWidth = drawWidth;
+            this.drawHeight = drawHeight;
+            this.scale = scale;
+            this.collisionRect = collisionRect;
+        }
+    }
+
     public void startGameThread() {
         gameThread = new Thread(this);
         gameThread.start(); 
     }
 
     private void loadBossArenaImage() {
-        try (InputStream is = getClass().getResourceAsStream("/res/boss_stage/boss_arena.png")) {
-            if (is != null) {
-                bossArenaImage = ImageIO.read(is);
+        bossArenaImage = loadNormalMapBackground("/res/maps/backgrounds/boss_base.png");
+        if (bossArenaImage == null) {
+            bossArenaImage = loadNormalMapBackground("/res/boss_stage/boss_arena.png");
+        }
+    }
+
+    private void loadNormalMapBackgrounds() {
+        forestBackgroundImage = loadNormalMapBackground("/res/maps/backgrounds/forest_base.png");
+        iceBackgroundImage = loadNormalMapBackground("/res/maps/backgrounds/ice_base.png");
+        desertBackgroundImage = loadNormalMapBackground("/res/maps/backgrounds/desert_base.png");
+    }
+
+    private BufferedImage loadNormalMapBackground(String path) {
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                System.out.println("Warning: could not load normal map background " + path);
+                return null;
             }
+
+            BufferedImage image = ImageIO.read(is);
+            if (image == null) {
+                System.out.println("Warning: could not read normal map background " + path);
+            }
+            return image;
         } catch (IOException e) {
-            bossArenaImage = null;
+            System.out.println("Warning: could not load normal map background " + path);
+            return null;
         }
     }
 
@@ -520,12 +637,22 @@ public class GamePanel extends JPanel implements Runnable {
         } else {
             if (currentLevel == 10 && bossArenaImage != null) {
                 drawBossArenaBackground(g2);
+            } else if (isNormalMapLevel()) {
+                drawNormalMapBackground(g2);
             } else {
                 tileM.draw(g2);
             }
             if (currentLevel == 10) {
-                drawBossStageDecorations(g2);
-                drawBossArenaCovers(g2);
+                if (bossPropLayerActive) {
+                    drawNormalMapProps(g2);
+                } else {
+                    drawBossStageDecorations(g2);
+                    drawBossArenaCovers(g2);
+                }
+                drawNormalMapObstacleDebug(g2);
+            } else {
+                drawNormalMapProps(g2);
+                drawNormalMapObstacleDebug(g2);
             }
             
            // Portal appears after the room is cleared.
@@ -606,6 +733,67 @@ public class GamePanel extends JPanel implements Runnable {
                 maxWorldCol * tileSize, maxWorldRow * tileSize, null);
     }
 
+    private boolean isNormalMapLevel() {
+        return isNormalMapLevel(currentLevel);
+    }
+
+    private boolean isNormalMapLevel(int level) {
+        return level >= 1 && level <= 10;
+    }
+
+    public boolean isNormalBackgroundMapActive() {
+        return isNormalMapLevel() && getCurrentNormalMapBackground() != null;
+    }
+
+    private void drawNormalMapBackground(Graphics2D g2) {
+        BufferedImage background = getCurrentNormalMapBackground();
+        if (background == null) {
+            tileM.draw(g2);
+            return;
+        }
+
+        int worldScreenX = -player.x + player.screenX;
+        int worldScreenY = -player.y + player.screenY;
+        g2.drawImage(background, worldScreenX, worldScreenY,
+                maxWorldCol * tileSize, maxWorldRow * tileSize, null);
+    }
+
+    private BufferedImage getCurrentNormalMapBackground() {
+        if (currentLevel >= 1 && currentLevel <= 3) {
+            return forestBackgroundImage;
+        }
+        if (currentLevel >= 4 && currentLevel <= 6) {
+            return iceBackgroundImage;
+        }
+        if (currentLevel >= 7 && currentLevel <= 9) {
+            return desertBackgroundImage;
+        }
+        if (currentLevel == 10) {
+            return bossArenaImage;
+        }
+        return null;
+    }
+
+    private void drawNormalMapProps(Graphics2D g2) {
+        if (isNormalMapLevel() == false || normalMapProps.isEmpty()) return;
+
+        RenderingHints oldHints = g2.getRenderingHints();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+
+        for (int i = 0; i < normalMapProps.size(); i++) {
+            MapProp prop = normalMapProps.get(i);
+            if (prop == null || prop.image == null) continue;
+
+            int screenX = prop.worldX - player.x + player.screenX;
+            int screenY = prop.worldY - player.y + player.screenY;
+            g2.drawImage(prop.image, screenX, screenY, prop.drawWidth, prop.drawHeight, null);
+        }
+
+        g2.setRenderingHints(oldHints);
+    }
+
     private void drawBossStageDecorations(Graphics2D g2) {
         for (int i = 0; i < bossStageDecorations.size(); i++) {
             BossStageDecoration decoration = bossStageDecorations.get(i);
@@ -636,11 +824,535 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public boolean isLevel10BossArenaCoverActive() {
-        return currentLevel == 10 && bossArenaCovers.isEmpty() == false;
+        return currentLevel == 10 && bossCoverFallbackActive && bossArenaCovers.isEmpty() == false;
+    }
+
+    private void createNormalMapObstacles(int level) {
+        normalMapObstacles.clear();
+        normalMapProps.clear();
+        bossPropLayerActive = false;
+        bossCoverFallbackActive = false;
+        if (isNormalMapLevel(level) == false) return;
+
+        if (level == 10) {
+            if (loadNormalMapPropsForLevel(level) && loadBossBoundaryObstacles()) {
+                bossPropLayerActive = true;
+                return;
+            }
+
+            normalMapObstacles.clear();
+            normalMapProps.clear();
+            loadFallbackNormalMapObstacles(level);
+            return;
+        }
+
+        if (loadNormalMapPropsForLevel(level)) {
+            return;
+        }
+
+        loadFallbackNormalMapObstacles(level);
+    }
+
+    public void reloadCurrentNormalMapProps() {
+        if (isNormalMapLevel() == false) {
+            System.out.println("No normal map props to reload for level " + currentLevel);
+            return;
+        }
+
+        createNormalMapObstacles(currentLevel);
+        repaint();
+
+        String definitionInfo = (loadedPropDefinitionPath == null) ? "fallback obstacles" : loadedPropDefinitionPath;
+        System.out.println("Reloaded map props for level " + currentLevel + " using " + definitionInfo);
+    }
+
+    private boolean loadNormalMapPropsForLevel(int level) {
+        if (loadMapPropDefinitions() == false) {
+            warnMapPropIssue("prop-definitions", "Warning: normal map prop definitions unavailable; using fallback obstacles.");
+            return false;
+        }
+
+        String objectPath = getNormalMapObjectFilePath(level);
+        if (objectPath == null) return false;
+
+        if (loadNormalMapObjectsFromFile(objectPath) == false) {
+            return false;
+        }
+
+        return normalMapProps.isEmpty() == false;
+    }
+
+    private void loadFallbackNormalMapObstacles(int level) {
+        loadedPropDefinitionPath = null;
+
+        if (level == 10) {
+            createBossCoverFallbackNormalMapObstacles();
+            bossCoverFallbackActive = bossArenaCovers.isEmpty() == false;
+            return;
+        }
+
+        String obstaclePath = getNormalMapObstacleFilePath(level);
+        if (obstaclePath != null && loadNormalMapObstaclesFromFile(obstaclePath)) {
+            return;
+        }
+
+        createFallbackNormalMapObstacles(level);
+    }
+
+    private String getNormalMapObjectFilePath(int level) {
+        if (level >= 1 && level <= 3) {
+            return "/res/maps/objects/forest_1_objects.txt";
+        }
+        if (level >= 4 && level <= 6) {
+            return "/res/maps/objects/ice_1_objects.txt";
+        }
+        if (level >= 7 && level <= 9) {
+            return "/res/maps/objects/desert_1_objects.txt";
+        }
+        if (level == 10) {
+            return "/res/maps/objects/boss_1_objects.txt";
+        }
+        return null;
+    }
+
+    private boolean loadBossBoundaryObstacles() {
+        return loadNormalMapObstaclesFromFile("/res/maps/obstacles/boss_1_boundaries.txt", "boundary");
+    }
+
+    private boolean loadMapPropDefinitions() {
+        propDefinitions.clear();
+        loadedPropDefinitionPath = null;
+
+        String[] definitionPaths = {
+                "/res/maps/props/prop_definition.txt",
+                "/res/maps/props/prop_definitions.txt",
+                "/res/maps/props/props_definitions.txt"
+        };
+
+        for (int i = 0; i < definitionPaths.length; i++) {
+            if (loadMapPropDefinitionsFromFile(definitionPaths[i])) {
+                loadedPropDefinitionPath = definitionPaths[i];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean loadMapPropDefinitionsFromFile(String path) {
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                return false;
+            }
+
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                String line;
+                int lineNumber = 0;
+
+                while ((line = br.readLine()) != null) {
+                    lineNumber++;
+                    String trimmed = line.trim();
+                    if (trimmed.length() == 0 || trimmed.startsWith("#")) continue;
+
+                    MapPropDefinition definition = parseMapPropDefinitionLine(path, lineNumber, trimmed);
+                    if (definition != null) {
+                        propDefinitions.put(definition.type, definition);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            warnMapPropIssue(path, "Warning: could not read prop definition file " + path);
+            return false;
+        }
+
+        if (propDefinitions.isEmpty()) {
+            warnMapPropIssue(path, "Warning: prop definition file has no usable definitions " + path);
+            return false;
+        }
+        return true;
+    }
+
+    private MapPropDefinition parseMapPropDefinitionLine(String path, int lineNumber, String line) {
+        String[] parts = line.split("\\s+");
+        if (parts.length != 7 && parts.length != 8) {
+            System.out.println("Warning: invalid prop definition line " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+
+        String type = parts[0];
+        String imagePath = parts[1];
+        int fieldOffset = isNumericToken(parts[2]) ? 1 : 0;
+
+        if ((fieldOffset == 1 && parts.length != 8) || (fieldOffset == 0 && parts.length != 7)) {
+            System.out.println("Warning: invalid prop definition line " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+
+        String collisionMode = parts[2 + fieldOffset].toLowerCase();
+
+        if (type.length() == 0 || ("none".equals(collisionMode) == false && "bbox".equals(collisionMode) == false)) {
+            System.out.println("Warning: invalid prop definition values " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+
+        try {
+            double scale = (fieldOffset == 1) ? Double.parseDouble(parts[2]) : 1.0;
+            double shrinkX = Double.parseDouble(parts[3 + fieldOffset]);
+            double shrinkY = Double.parseDouble(parts[4 + fieldOffset]);
+            Boolean blocksMovement = parseObstacleBoolean(parts[5 + fieldOffset]);
+            Boolean blocksProjectiles = parseObstacleBoolean(parts[6 + fieldOffset]);
+
+            if (scale <= 0.0 || shrinkX < 0.0 || shrinkX >= 1.0 || shrinkY < 0.0 || shrinkY >= 1.0
+                    || blocksMovement == null || blocksProjectiles == null) {
+                System.out.println("Warning: invalid prop definition values " + path + ":" + lineNumber + " -> " + line);
+                return null;
+            }
+
+            BufferedImage image = loadMapPropImage(imagePath, path, lineNumber);
+            if (image == null) return null;
+
+            return new MapPropDefinition(type, imagePath, image, scale, collisionMode,
+                    shrinkX, shrinkY, blocksMovement.booleanValue(), blocksProjectiles.booleanValue());
+        } catch (NumberFormatException e) {
+            System.out.println("Warning: invalid prop definition number " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+    }
+
+    private boolean isNumericToken(String value) {
+        try {
+            Double.parseDouble(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private BufferedImage loadMapPropImage(String imagePath, String definitionPath, int lineNumber) {
+        try (InputStream is = getClass().getResourceAsStream(imagePath)) {
+            if (is == null) {
+                warnMapPropIssue(imagePath, "Warning: missing prop image " + imagePath + " referenced by "
+                        + definitionPath + ":" + lineNumber);
+                return null;
+            }
+
+            BufferedImage image = ImageIO.read(is);
+            if (image == null) {
+                warnMapPropIssue(imagePath, "Warning: could not read prop image " + imagePath + " referenced by "
+                        + definitionPath + ":" + lineNumber);
+            }
+            return image;
+        } catch (IOException e) {
+            warnMapPropIssue(imagePath, "Warning: could not load prop image " + imagePath + " referenced by "
+                    + definitionPath + ":" + lineNumber);
+            return null;
+        }
+    }
+
+    private boolean loadNormalMapObjectsFromFile(String path) {
+        int validPropCount = 0;
+
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                warnMapPropIssue(path, "Warning: missing normal map object file " + path + "; using fallback obstacles.");
+                return false;
+            }
+
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                String line;
+                int lineNumber = 0;
+
+                while ((line = br.readLine()) != null) {
+                    lineNumber++;
+                    String trimmed = line.trim();
+                    if (trimmed.length() == 0 || trimmed.startsWith("#")) continue;
+
+                    if (parseNormalMapObjectLine(path, lineNumber, trimmed)) {
+                        validPropCount++;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            warnMapPropIssue(path, "Warning: could not read normal map object file " + path + "; using fallback obstacles.");
+            return false;
+        }
+
+        if (validPropCount == 0) {
+            warnMapPropIssue(path, "Warning: normal map object file has no usable props " + path + "; using fallback obstacles.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean parseNormalMapObjectLine(String path, int lineNumber, String line) {
+        String[] parts = line.split("\\s+");
+        if (parts.length != 3) {
+            System.out.println("Warning: invalid map object line " + path + ":" + lineNumber + " -> " + line);
+            return false;
+        }
+
+        MapPropDefinition definition = propDefinitions.get(parts[0]);
+        if (definition == null) {
+            System.out.println("Warning: unknown map prop type " + path + ":" + lineNumber + " -> " + parts[0]);
+            return false;
+        }
+        if (isBossObjectFile(path) && isBlockingPropDefinition(definition) == false) {
+            System.out.println("Warning: boss object prop must be blocking cover "
+                    + path + ":" + lineNumber + " -> " + parts[0]);
+            return false;
+        }
+
+        try {
+            int worldX = Integer.parseInt(parts[1]);
+            int worldY = Integer.parseInt(parts[2]);
+            addNormalMapProp(definition, worldX, worldY);
+            return true;
+        } catch (NumberFormatException e) {
+            System.out.println("Warning: invalid map object coordinates " + path + ":" + lineNumber + " -> " + line);
+            return false;
+        }
+    }
+
+    private boolean isBossObjectFile(String path) {
+        return "/res/maps/objects/boss_1_objects.txt".equals(path);
+    }
+
+    private boolean isBlockingPropDefinition(MapPropDefinition definition) {
+        return definition != null
+                && "bbox".equals(definition.collisionMode)
+                && definition.blocksMovement
+                && definition.blocksProjectiles;
+    }
+
+    private void addNormalMapProp(MapPropDefinition definition, int worldX, int worldY) {
+        int imageWidth = definition.image.getWidth();
+        int imageHeight = definition.image.getHeight();
+        int drawWidth = Math.max(1, (int)Math.round(imageWidth * definition.scale));
+        int drawHeight = Math.max(1, (int)Math.round(imageHeight * definition.scale));
+        String propId = definition.type + "#" + (normalMapProps.size() + 1);
+        Rectangle collisionRect = null;
+
+        if ("bbox".equals(definition.collisionMode)) {
+            collisionRect = createMapPropCollisionRect(worldX, worldY, drawWidth, drawHeight,
+                    definition.shrinkX, definition.shrinkY, definition.type);
+            normalMapObstacles.add(new NormalMapObstacle(propId, collisionRect,
+                    definition.blocksMovement, definition.blocksProjectiles, "prop"));
+        }
+
+        normalMapProps.add(new MapProp(propId, definition.type, definition.image,
+                worldX, worldY, imageWidth, imageHeight, drawWidth, drawHeight,
+                definition.scale, collisionRect));
+    }
+
+    private Rectangle createMapPropCollisionRect(int worldX, int worldY, int drawWidth, int drawHeight,
+                                                 double shrinkX, double shrinkY, String propType) {
+        int collisionW = Math.max(1, (int)Math.round(drawWidth * (1.0 - shrinkX)));
+        int collisionH = Math.max(1, (int)Math.round(drawHeight * (1.0 - shrinkY)));
+        int collisionX = worldX + (drawWidth - collisionW) / 2;
+        int collisionY;
+
+        if (usesBottomAnchoredCollision(propType, drawWidth, drawHeight)) {
+            int bottomInset = Math.max(2, (int)Math.round(drawHeight * 0.08));
+            collisionY = worldY + drawHeight - collisionH - bottomInset;
+            if (collisionY < worldY) collisionY = worldY;
+        } else {
+            collisionY = worldY + (drawHeight - collisionH) / 2;
+        }
+
+        return new Rectangle(collisionX, collisionY, collisionW, collisionH);
+    }
+
+    private boolean usesBottomAnchoredCollision(String propType, int drawWidth, int drawHeight) {
+        if (propType == null || propType.startsWith("boss_") == false) return false;
+        return drawHeight > drawWidth * 1.1;
+    }
+
+    private void warnMapPropIssue(String key, String message) {
+        if (warnedMapPropIssues.add(key)) {
+            System.out.println(message);
+        }
+    }
+
+    private String getNormalMapObstacleFilePath(int level) {
+        if (level >= 1 && level <= 3) {
+            return "/res/maps/obstacles/forest_1_obstacles.txt";
+        }
+        if (level >= 4 && level <= 6) {
+            return "/res/maps/obstacles/ice_1_obstacles.txt";
+        }
+        if (level >= 7 && level <= 9) {
+            return "/res/maps/obstacles/desert_1_obstacles.txt";
+        }
+        return null;
+    }
+
+    private boolean loadNormalMapObstaclesFromFile(String path) {
+        return loadNormalMapObstaclesFromFile(path, "file");
+    }
+
+    private boolean loadNormalMapObstaclesFromFile(String path, String source) {
+        ArrayList<NormalMapObstacle> loadedObstacles = new ArrayList<>();
+
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                warnNormalObstacleFallback(path, "missing obstacle file");
+                return false;
+            }
+
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                String line;
+                int lineNumber = 0;
+
+                while ((line = br.readLine()) != null) {
+                    lineNumber++;
+                    String trimmed = line.trim();
+                    if (trimmed.length() == 0 || trimmed.startsWith("#")) continue;
+
+                    NormalMapObstacle obstacle = parseNormalMapObstacleLine(path, lineNumber, trimmed);
+                    if (obstacle != null) {
+                        obstacle.source = source;
+                        loadedObstacles.add(obstacle);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            warnNormalObstacleFallback(path, "could not read obstacle file");
+            return false;
+        }
+
+        if (loadedObstacles.isEmpty()) {
+            warnNormalObstacleFallback(path, "no valid obstacles found");
+            return false;
+        }
+
+        normalMapObstacles.addAll(loadedObstacles);
+        return true;
+    }
+
+    private NormalMapObstacle parseNormalMapObstacleLine(String path, int lineNumber, String line) {
+        String[] parts = line.split("\\s+");
+        if (parts.length != 7) {
+            System.out.println("Warning: invalid obstacle line " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+
+        try {
+            String id = parts[0];
+            int worldX = Integer.parseInt(parts[1]);
+            int worldY = Integer.parseInt(parts[2]);
+            int width = Integer.parseInt(parts[3]);
+            int height = Integer.parseInt(parts[4]);
+            Boolean blocksMovement = parseObstacleBoolean(parts[5]);
+            Boolean blocksProjectiles = parseObstacleBoolean(parts[6]);
+
+            if (id.length() == 0 || width <= 0 || height <= 0 || blocksMovement == null || blocksProjectiles == null) {
+                System.out.println("Warning: invalid obstacle values " + path + ":" + lineNumber + " -> " + line);
+                return null;
+            }
+
+            return new NormalMapObstacle(id, new Rectangle(worldX, worldY, width, height),
+                    blocksMovement.booleanValue(), blocksProjectiles.booleanValue());
+        } catch (NumberFormatException e) {
+            System.out.println("Warning: invalid obstacle number " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+    }
+
+    private Boolean parseObstacleBoolean(String value) {
+        if ("true".equalsIgnoreCase(value)) return Boolean.TRUE;
+        if ("false".equalsIgnoreCase(value)) return Boolean.FALSE;
+        return null;
+    }
+
+    private void warnNormalObstacleFallback(String path, String reason) {
+        if (warnedNormalObstacleFallbacks.add(path)) {
+            System.out.println("Warning: " + reason + " " + path + "; using fallback normal map obstacles.");
+        }
+    }
+
+    private void createFallbackNormalMapObstacles(int level) {
+        int variation = (level - 1) % 3;
+        addNormalMapObstacleForVariation("A", 5, 7, 4, 3, variation);
+        addNormalMapObstacleForVariation("B", 21, 7, 4, 3, variation);
+        addNormalMapObstacleForVariation("C", 4, 15, 4, 2, variation);
+        addNormalMapObstacleForVariation("D", 22, 15, 4, 2, variation);
+        addNormalMapObstacleForVariation("E", 7, 22, 4, 3, variation);
+        addNormalMapObstacleForVariation("F", 19, 22, 4, 3, variation);
+        addNormalMapObstacleForVariation("G", 12, 4, 6, 2, variation);
+        addNormalMapObstacleForVariation("H", 12, 25, 6, 2, variation);
+        addNormalMapObstacleForVariation("I", 2, 11, 2, 6, variation);
+        addNormalMapObstacleForVariation("J", 26, 11, 2, 6, variation);
+    }
+
+    private void createBossCoverFallbackNormalMapObstacles() {
+        for (int i = 0; i < bossArenaCovers.size(); i++) {
+            BossArenaCover cover = bossArenaCovers.get(i);
+            if (cover == null || cover.hitbox == null) continue;
+
+            normalMapObstacles.add(new NormalMapObstacle(
+                    "boss_cover_fallback_" + (i + 1),
+                    new Rectangle(cover.hitbox),
+                    true,
+                    true,
+                    "boss_fallback"));
+        }
+    }
+
+    private void addNormalMapObstacleForVariation(String id, int tileX, int tileY, int tileW, int tileH, int variation) {
+        int adjustedTileX = tileX;
+        int adjustedTileY = tileY;
+        String adjustedId = id;
+
+        if (variation == 1) {
+            adjustedTileX = maxWorldCol - tileX - tileW;
+            adjustedId = id + "m";
+        } else if (variation == 2) {
+            if ("C".equals(id)) {
+                adjustedTileY += 1;
+                adjustedId = id + "s";
+            } else if ("F".equals(id)) {
+                adjustedTileX -= 1;
+                adjustedId = id + "s";
+            }
+        }
+
+        addNormalMapObstacle(adjustedId, adjustedTileX, adjustedTileY, tileW, tileH, true, true);
+    }
+
+    private void addNormalMapObstacle(String id, int tileX, int tileY, int tileW, int tileH,
+                                      boolean blocksMovement, boolean blocksProjectiles) {
+        int worldX = tileX * tileSize;
+        int worldY = tileY * tileSize;
+        int fullWidth = tileW * tileSize;
+        int fullHeight = tileH * tileSize;
+        int insetX = Math.max(4, (int)Math.round(fullWidth * 0.08));
+        int insetY = Math.max(4, (int)Math.round(fullHeight * 0.08));
+
+        Rectangle hitbox = new Rectangle(worldX + insetX, worldY + insetY,
+                Math.max(1, fullWidth - insetX * 2),
+                Math.max(1, fullHeight - insetY * 2));
+        normalMapObstacles.add(new NormalMapObstacle(id, hitbox, blocksMovement, blocksProjectiles, "fallback"));
+    }
+
+    public boolean collidesWithNormalMapObstacle(Rectangle worldArea, boolean projectile) {
+        if (isNormalMapLevel() == false || worldArea == null || normalMapObstacles.isEmpty()) return false;
+
+        for (int i = 0; i < normalMapObstacles.size(); i++) {
+            NormalMapObstacle obstacle = normalMapObstacles.get(i);
+            if (obstacle == null || obstacle.worldHitbox == null) continue;
+            if (projectile == true && obstacle.blocksProjectiles == false) continue;
+            if (projectile == false && obstacle.blocksMovement == false) continue;
+
+            if (worldArea.intersects(obstacle.worldHitbox)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void drawBossCoverDebugHitboxes(Graphics2D g2) {
-        if (DEBUG_BOSS_COVER_HITBOX == false || currentLevel != 10) return;
+        if (DEBUG_BOSS_COVER_HITBOX == false || isLevel10BossArenaCoverActive() == false) return;
 
         g2.setColor(Color.RED);
         for (int i = 0; i < bossArenaCovers.size(); i++) {
@@ -660,6 +1372,98 @@ public class GamePanel extends JPanel implements Runnable {
         for (int i = 0; i < bulletList.size(); i++) {
             drawWorldRect(g2, bulletList.get(i).getBounds());
         }
+    }
+
+    private void drawNormalMapObstacleDebug(Graphics2D g2) {
+        if (DEBUG_NORMAL_MAP_OBSTACLES == false || isNormalMapLevel() == false) return;
+
+        Composite oldComposite = g2.getComposite();
+
+        drawActiveTileCollisionDebug(g2);
+        drawWorldBoundsDebug(g2);
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.20f));
+        g2.setColor(new Color(255, 210, 0));
+        for (int i = 0; i < normalMapProps.size(); i++) {
+            MapProp prop = normalMapProps.get(i);
+            if (prop == null || prop.image == null) continue;
+
+            int screenX = prop.worldX - player.x + player.screenX;
+            int screenY = prop.worldY - player.y + player.screenY;
+            g2.fillRect(screenX, screenY, prop.drawWidth, prop.drawHeight);
+        }
+
+        for (int i = 0; i < normalMapObstacles.size(); i++) {
+            NormalMapObstacle obstacle = normalMapObstacles.get(i);
+            if (obstacle == null || obstacle.worldHitbox == null) continue;
+
+            int screenX = obstacle.worldHitbox.x - player.x + player.screenX;
+            int screenY = obstacle.worldHitbox.y - player.y + player.screenY;
+            Color obstacleColor = getNormalMapDebugColor(obstacle);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f));
+            g2.setColor(obstacleColor);
+            g2.fillRect(screenX, screenY, obstacle.worldHitbox.width, obstacle.worldHitbox.height);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.90f));
+            g2.setColor(Color.WHITE);
+            g2.drawString(getNormalMapDebugLabel(obstacle.id) + getNormalMapDebugFlags(obstacle),
+                    screenX + 4, screenY + 14);
+        }
+
+        g2.setComposite(oldComposite);
+    }
+
+    private Color getNormalMapDebugColor(NormalMapObstacle obstacle) {
+        if (obstacle == null) return new Color(255, 90, 180);
+        if ("prop".equals(obstacle.source)) return new Color(0, 190, 255);
+        if ("boundary".equals(obstacle.source)) return new Color(170, 90, 255);
+        if ("boss_fallback".equals(obstacle.source)) return new Color(255, 90, 180);
+        return new Color(255, 150, 40);
+    }
+
+    private void drawActiveTileCollisionDebug(Graphics2D g2) {
+        if (isNormalBackgroundMapActive()) return;
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
+        g2.setColor(new Color(255, 80, 40));
+        for (int col = 0; col < maxWorldCol; col++) {
+            for (int row = 0; row < maxWorldRow; row++) {
+                int tileNum = tileM.mapTileNum[col][row];
+                if (tileM.isCollisionTile(tileNum) == false) continue;
+
+                int screenX = col * tileSize - player.x + player.screenX;
+                int screenY = row * tileSize - player.y + player.screenY;
+                g2.fillRect(screenX, screenY, tileSize, tileSize);
+            }
+        }
+    }
+
+    private void drawWorldBoundsDebug(Graphics2D g2) {
+        int screenX = -player.x + player.screenX;
+        int screenY = -player.y + player.screenY;
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.90f));
+        g2.setColor(new Color(255, 70, 70));
+        g2.drawRect(screenX, screenY, maxWorldCol * tileSize, maxWorldRow * tileSize);
+        g2.drawString("world_bounds", screenX + 6, screenY + 16);
+    }
+
+    private String getNormalMapDebugLabel(String obstacleId) {
+        for (int i = 0; i < normalMapProps.size(); i++) {
+            MapProp prop = normalMapProps.get(i);
+            if (prop != null && obstacleId.equals(prop.id)) {
+                return prop.type + " x" + String.format("%.2f", prop.scale);
+            }
+        }
+        return obstacleId;
+    }
+
+    private String getNormalMapDebugFlags(NormalMapObstacle obstacle) {
+        if (obstacle == null) return "";
+        String movement = obstacle.blocksMovement ? "M" : "-";
+        String projectile = obstacle.blocksProjectiles ? "P" : "-";
+        return " [" + movement + projectile + "]";
     }
 
     private void drawEntitySolidArea(Graphics2D g2, game.entity.Entity entity) {
@@ -716,6 +1520,11 @@ public class GamePanel extends JPanel implements Runnable {
                 if (distance > 8) { 
                     int worldX = col * tileSize;
                     int worldY = row * tileSize;
+                    Rectangle spawnHitbox = new Rectangle(worldX + 8, worldY + 8, 32, 32);
+                    if (collidesWithNormalMapObstacle(spawnHitbox, false)) {
+                        continue;
+                    }
+
                     // Later levels add more ranged monsters.
                     double meleeRate = Math.max(0.35, 0.65 - level * 0.03);
                     int type = (Math.random() < meleeRate) ? 1 : 2; 
@@ -1130,6 +1939,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Reload tile images before reading the new map.
         tileM.getTileInfo(); 
         tileM.loadMap(level); 
+        createNormalMapObstacles(level);
 
         // No auto-heal between levels; hearts are the healing source.
 

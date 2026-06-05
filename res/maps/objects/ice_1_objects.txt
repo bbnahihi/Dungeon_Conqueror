@@ -1,0 +1,11 @@
+# type x y
+ice_snow_pine 80 90
+ice_crystal_cluster 980 100
+ice_frozen_rock 90 430
+ice_frozen_pond 860 430
+ice_broken_wall 380 760
+ice_icy_column 100 860
+ice_icy_brazier 1060 820
+ice_dead_tree 260 1120
+ice_cracked_ice_patch 760 1120
+ice_frost_bush 560 260

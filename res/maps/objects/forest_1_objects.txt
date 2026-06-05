@@ -1,0 +1,11 @@
+# type x y
+forest_big_tree 80 80
+forest_fallen_log 760 120
+forest_stump 1060 230
+forest_tree_cluster 70 520
+forest_wooden_fence 980 560
+forest_stone_column 360 790
+forest_mossy_rock 780 850
+forest_pond 80 1080
+forest_campfire 1080 1050
+forest_lantern_post 620 260

@@ -1,0 +1,8 @@
+# type x y
+# Sparse gameplay cover only. Decorative boss details belong in boss_base.png.
+boss_broken_pillar 210 240
+boss_stone_column 1060 240
+boss_broken_pedestal 240 760
+boss_broken_pedestal 1040 760
+boss_rubble_pile 470 1040
+boss_rubble_pile 760 1040

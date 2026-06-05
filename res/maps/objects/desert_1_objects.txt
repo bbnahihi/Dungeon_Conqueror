@@ -1,0 +1,11 @@
+# type x y
+desert_tall_cactus 100 100
+desert_prickly_pear 450 140
+desert_ruins_wall 840 160
+desert_tent 80 570
+desert_obelisk 520 610
+desert_urn_set 1030 480
+desert_arch 850 940
+desert_oasis 360 1040
+desert_brazier 80 980
+desert_broken_column 1080 700

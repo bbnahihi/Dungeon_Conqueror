@@ -1,0 +1,10 @@
+# id x y w h movement projectile
+tree_cluster_nw 250 350 150 105 true true
+fallen_log_north 585 210 270 70 true true
+tree_cluster_ne 1035 355 150 105 true true
+pond_west 145 700 190 110 true true
+rock_east 1100 705 185 105 true true
+tree_cluster_sw 340 1050 155 120 true true
+fallen_log_south 610 1210 240 70 true true
+tree_cluster_se 980 1035 160 120 true true
+small_stump_mid 675 870 100 75 true true

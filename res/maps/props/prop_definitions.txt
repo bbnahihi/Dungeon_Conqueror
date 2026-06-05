@@ -1,0 +1,63 @@
+# type imagePath scale collisionMode shrinkX shrinkY blocksMovement blocksProjectiles
+
+# Forest
+forest_big_tree /res/maps/props/forest/forest_big_tree.png 0.42 bbox 0.55 0.45 true true
+forest_medium_tree /res/maps/props/forest/forest_medium_tree.png 0.45 bbox 0.50 0.45 true true
+forest_tree_cluster /res/maps/props/forest/forest_tree_cluster.png 0.45 bbox 0.30 0.35 true true
+forest_stump /res/maps/props/forest/forest_stump.png 0.50 bbox 0.25 0.25 true true
+forest_fallen_log /res/maps/props/forest/forest_fallen_log.png 0.50 bbox 0.15 0.35 true true
+forest_wooden_fence /res/maps/props/forest/forest_wooden_fence.png 0.50 bbox 0.08 0.45 true true
+forest_mossy_rock /res/maps/props/forest/forest_mossy_rock.png 0.50 bbox 0.20 0.20 true true
+forest_stone_column /res/maps/props/forest/forest_stone_column.png 0.48 bbox 0.25 0.15 true true
+forest_mushroom_cluster /res/maps/props/forest/forest_mushroom_cluster.png 0.55 none 0.00 0.00 false false
+forest_campfire /res/maps/props/forest/forest_campfire.png 0.50 bbox 0.25 0.25 true true
+forest_lantern_post /res/maps/props/forest/forest_lantern_post.png 0.50 bbox 0.45 0.25 true true
+forest_pond /res/maps/props/forest/forest_pond.png 0.50 bbox 0.08 0.10 true true
+
+# Ice
+ice_snow_pine /res/maps/props/ice/ice_snow_pine.png 0.45 bbox 0.50 0.35 true true
+ice_frost_bush /res/maps/props/ice/ice_frost_bush.png 0.50 bbox 0.25 0.35 true true
+ice_crystal_cluster /res/maps/props/ice/ice_crystal_cluster.png 0.45 bbox 0.25 0.20 true true
+ice_frozen_rock /res/maps/props/ice/ice_frozen_rock.png 0.50 bbox 0.15 0.15 true true
+ice_snow_stump /res/maps/props/ice/ice_snow_stump.png 0.50 bbox 0.20 0.20 true true
+ice_frozen_pond /res/maps/props/ice/ice_frozen_pond.png 0.50 bbox 0.06 0.08 true true
+ice_icy_column /res/maps/props/ice/ice_icy_column.png 0.50 bbox 0.25 0.12 true true
+ice_broken_wall /res/maps/props/ice/ice_broken_wall.png 0.45 bbox 0.08 0.25 true true
+ice_icy_brazier /res/maps/props/ice/ice_icy_brazier.png 0.50 bbox 0.20 0.20 true true
+ice_dead_tree /res/maps/props/ice/ice_dead_tree.png 0.50 bbox 0.25 0.30 true true
+ice_cracked_ice_patch /res/maps/props/ice/ice_cracked_ice_patch.png 0.55 none 0.00 0.00 false false
+
+# Desert
+desert_tall_cactus /res/maps/props/desert/desert_tall_cactus.png 0.50 bbox 0.35 0.15 true true
+desert_prickly_pear /res/maps/props/desert/desert_prickly_pear.png 0.50 bbox 0.25 0.18 true true
+desert_dead_bush /res/maps/props/desert/desert_dead_bush.png 0.55 none 0.00 0.00 false false
+desert_dry_grass /res/maps/props/desert/desert_dry_grass.png 0.55 none 0.00 0.00 false false
+desert_rib_bones /res/maps/props/desert/desert_rib_bones.png 0.55 none 0.00 0.00 false false
+desert_skull_bones /res/maps/props/desert/desert_skull_bones.png 0.55 none 0.00 0.00 false false
+desert_scattered_bones /res/maps/props/desert/desert_scattered_bones.png 0.60 none 0.00 0.00 false false
+desert_urn_set /res/maps/props/desert/desert_urn_set.png 0.50 bbox 0.20 0.20 true true
+desert_tent /res/maps/props/desert/desert_tent.png 0.48 bbox 0.15 0.25 true true
+desert_obelisk /res/maps/props/desert/desert_obelisk.png 0.50 bbox 0.25 0.10 true true
+desert_ruins_wall /res/maps/props/desert/desert_ruins_wall.png 0.45 bbox 0.08 0.25 true true
+desert_broken_column /res/maps/props/desert/desert_broken_column.png 0.50 bbox 0.20 0.12 true true
+desert_brazier /res/maps/props/desert/desert_brazier.png 0.50 bbox 0.20 0.20 true true
+desert_oasis /res/maps/props/desert/desert_oasis.png 0.50 bbox 0.06 0.08 true true
+desert_arch /res/maps/props/desert/desert_arch.png 0.45 bbox 0.10 0.20 true true
+
+# Boss - open arena layout, mostly corner/edge decoration
+# Blocking props are kept sparse so the boss arena stays open.
+# Visual-only props are intentionally smaller to reduce visible white fringe impact.
+boss_broken_pillar /res/maps/props/boss/boss_broken_pillar.png 0.42 bbox 0.62 0.62 true true
+boss_stone_column /res/maps/props/boss/boss_stone_column.png 0.42 bbox 0.62 0.62 true true
+boss_broken_pedestal /res/maps/props/boss/boss_broken_pedestal.png 0.42 bbox 0.45 0.55 true true
+boss_rubble_pile /res/maps/props/boss/boss_rubble_pile.png 0.42 bbox 0.35 0.45 true true
+
+# Visual-only decoration
+boss_purple_crystal /res/maps/props/boss/boss_purple_crystal.png 0.34 none 0.00 0.00 false false
+boss_void_brazier /res/maps/props/boss/boss_void_brazier.png 0.34 none 0.00 0.00 false false
+boss_chain_fence /res/maps/props/boss/boss_chain_fence.png 0.38 none 0.00 0.00 false false
+boss_rune_tile /res/maps/props/boss/boss_rune_tile.png 0.38 none 0.00 0.00 false false
+boss_void_crack_tile /res/maps/props/boss/boss_void_crack_tile.png 0.38 none 0.00 0.00 false false
+boss_ritual_altar /res/maps/props/boss/boss_ritual_altar.png 0.34 none 0.00 0.00 false false
+boss_void_portal_gate /res/maps/props/boss/boss_void_portal_gate.png 0.34 none 0.00 0.00 false false
+boss_stone_stairs /res/maps/props/boss/boss_stone_stairs.png 0.38 none 0.00 0.00 false false
