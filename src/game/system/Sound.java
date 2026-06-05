@@ -16,15 +16,17 @@ public class Sound {
     int currentSoundId;
 
     public Sound() {
-        soundURL[0] = getClass().getResource("/res/music.wav");       
+        soundURL[0] = getClass().getResource("/res/music/level1_forest.wav");
         soundURL[1] = getClass().getResource("/res/gun_shoot.wav");   
         soundURL[2] = getClass().getResource("/res/sword_swing.wav"); 
         soundURL[3] = getClass().getResource("/res/gun_ulti.wav");    
         soundURL[4] = getClass().getResource("/res/sword_ulti.wav");  
         soundURL[5] = getClass().getResource("/res/gameover.wav");
-        soundURL[6] = getClass().getResource("/res/menu.wav");
+        soundURL[6] = getClass().getResource("/res/music/lobby.wav");
         soundURL[7] = getClass().getResource("/res/win.wav");
-        soundURL[8] = getClass().getResource("/res/boss_music.wav");
+        soundURL[8] = getClass().getResource("/res/music/boss.wav");
+        soundURL[9] = getClass().getResource("/res/music/level2_ice.wav");
+        soundURL[10] = getClass().getResource("/res/music/level3_desert.wav");
         
         for(int i = 0; i < soundURL.length; i++) {
             if(soundURL[i] != null) {

@@ -75,6 +75,11 @@ public class GamePanel extends JPanel implements Runnable {
     private static final int LAST_NORMAL_LEVEL = 3;
     private static final int BOSS_LEVEL = 10;
     private static final int NO_PENDING_LEVEL = -1;
+    private static final int MUSIC_LEVEL1_FOREST = 0;
+    private static final int MUSIC_LOBBY = 6;
+    private static final int MUSIC_BOSS = 8;
+    private static final int MUSIC_LEVEL2_ICE = 9;
+    private static final int MUSIC_LEVEL3_DESERT = 10;
     public int currentLevel = FOREST_LEVEL;
     public int score = 0;
     public int bestScore = 0;
@@ -136,6 +141,7 @@ public class GamePanel extends JPanel implements Runnable {
     // Volume levels use 0-5.
     public int musicVolume = 3;
     public int seVolume = 3;
+    private int currentMusicTrack = -1;
 
     // Damage text shown above enemies.
     public java.util.ArrayList<FloatingText> floatingTextList = new java.util.ArrayList<>();
@@ -158,7 +164,7 @@ public class GamePanel extends JPanel implements Runnable {
         createBossArenaCovers();
         loadBestScore();
 
-        playMusic(6);
+        playLobbyMusic();
     }
 
     private static class BossStageDecoration {
@@ -812,6 +818,7 @@ public class GamePanel extends JPanel implements Runnable {
         levelClearHandled = true;
         pendingLevelAfterUpgrade = nextLevel;
         upgradeManager.rollUpgrades();
+        stopCurrentMusicForUpgrade();
         gameState = upgradeState;
     }
 
@@ -2090,7 +2097,7 @@ public class GamePanel extends JPanel implements Runnable {
         gameState = titleState;
         ui.commandNum = 0;
         resetGame();
-        playMusic(6);
+        playLobbyMusic();
     }
 
     private void returnFromOptions() {
@@ -2127,6 +2134,7 @@ public class GamePanel extends JPanel implements Runnable {
     public void playMusic(int i) {
         music.stop();
         music.setFile(i);
+        currentMusicTrack = i;
         // Apply the current menu volume.
         music.setVolume(getVolumeDecibels(musicVolume)); 
         music.play();
@@ -2135,7 +2143,36 @@ public class GamePanel extends JPanel implements Runnable {
 
     public void stopMusic() {
         music.stop();
+        currentMusicTrack = -1;
     }
+
+    private void playMusicIfChanged(int index) {
+        if (currentMusicTrack == index) return;
+        playMusic(index);
+    }
+
+    private void playLobbyMusic() {
+        playMusicIfChanged(MUSIC_LOBBY);
+    }
+
+    private void playMusicForLevel(int level) {
+        if (level == FOREST_LEVEL) {
+            playMusicIfChanged(MUSIC_LEVEL1_FOREST);
+        } else if (level == ICE_LEVEL) {
+            playMusicIfChanged(MUSIC_LEVEL2_ICE);
+        } else if (level == DESERT_LEVEL) {
+            playMusicIfChanged(MUSIC_LEVEL3_DESERT);
+        } else if (isBossLevel(level)) {
+            playMusicIfChanged(MUSIC_BOSS);
+        } else {
+            stopMusic();
+        }
+    }
+
+    private void stopCurrentMusicForUpgrade() {
+        stopMusic();
+    }
+
     public void pauseMusic() {
         music.pause();
     }
@@ -2272,11 +2309,7 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
 
-            if (level == FOREST_LEVEL) {
-                playMusic(0);
-            } else if (isBossLevel(level)) {
-                playMusic(8);
-            }
+            playMusicForLevel(level);
         } finally {
             mapTransitionInProgress = false;
         }
