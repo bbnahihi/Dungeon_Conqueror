@@ -71,6 +71,14 @@ public class Player extends Entity {
     private static final boolean DEBUG_SWORD_HITBOX = false;
     private static final int SWORD_BASE_REACH = 80;
     private static final int SWORD_BASE_WIDTH = 42;
+    private static final int SWORD_SLASH_FRAME_COUNT = 6;
+    private static final int SWORD_SLASH_FRAME_WIDTH = 96;
+    private static final int SWORD_SLASH_FRAME_HEIGHT = 64;
+    private static final int SWORD_IMAGE_WIDTH = 128;
+    private static final int SWORD_IMAGE_HEIGHT = 32;
+    private static final int SWORD_IMAGE_PIVOT_X = 24;
+    private static final int SWORD_IMAGE_PIVOT_Y = 16;
+    private static final double[] SWORD_FRAME_LOCAL_ANGLE_DEGREES = {-70.0, -35.0, -10.0, 0.0, 35.0, 45.0};
     private static final int BLADE_RUSH_DURATION = 14;
     private static final int BLADE_RUSH_SPEED = 11;
     private static final int BLADE_RUSH_DAMAGE = 10;
@@ -97,6 +105,11 @@ public class Player extends Entity {
     public int spriteNum = 0;
     public int animationState = 0;
     public BufferedImage[] slashVFX;
+    private BufferedImage swordsmanSwordImage;
+    private BufferedImage swordsmanSlashSheet;
+    private BufferedImage[] swordsmanSlashFrames;
+    private boolean warnedSwordsmanSwordAssetMissing = false;
+    private boolean warnedSwordsmanSlashAssetMissing = false;
     public BufferedImage arrowImage;
     
     public Player(GamePanel gp, KeyHandler keyH, MouseHandler mouseH) {
@@ -134,6 +147,7 @@ public class Player extends Entity {
             else if (classType == 1) {
                 attackSheet = ImageIO.read(getClass().getResourceAsStream("/res/player/Soldier-Attack01.png"));
                 attackFrames = new BufferedImage[6];
+                loadSwordsmanMeleeAssets();
             }
             
             idleFrames = new BufferedImage[6]; 
@@ -157,6 +171,75 @@ public class Player extends Entity {
         } catch (Exception e) {
             System.out.println("ERROR: Could not load or slice the sprite sheet!");
             e.printStackTrace();
+        }
+    }
+
+    private void loadSwordsmanMeleeAssets() {
+        swordsmanSwordImage = null;
+        swordsmanSlashSheet = null;
+        swordsmanSlashFrames = null;
+
+        try (java.io.InputStream swordStream = getClass().getResourceAsStream("/res/player/swordsman_sword.png")) {
+            if (swordStream == null) {
+                warnSwordsmanSwordAsset("Warning: missing /res/player/swordsman_sword.png; using code-drawn sword fallback.");
+            } else {
+                swordsmanSwordImage = ImageIO.read(swordStream);
+                if (swordsmanSwordImage == null) {
+                    warnSwordsmanSwordAsset("Warning: could not read /res/player/swordsman_sword.png; using code-drawn sword fallback.");
+                }
+            }
+        } catch (Exception e) {
+            warnSwordsmanSwordAsset("Warning: could not load /res/player/swordsman_sword.png; using code-drawn sword fallback.");
+            swordsmanSwordImage = null;
+        }
+
+        try (java.io.InputStream slashStream = getClass().getResourceAsStream("/res/player/swordsman_slash_sheet.png")) {
+            if (slashStream == null) {
+                warnSwordsmanSlashAsset("Warning: missing /res/player/swordsman_slash_sheet.png; using code-drawn slash fallback.");
+            } else {
+                swordsmanSlashSheet = ImageIO.read(slashStream);
+                if (swordsmanSlashSheet == null) {
+                    warnSwordsmanSlashAsset("Warning: could not read /res/player/swordsman_slash_sheet.png; using code-drawn slash fallback.");
+                } else {
+                    sliceSwordsmanSlashSheet();
+                }
+            }
+        } catch (Exception e) {
+            warnSwordsmanSlashAsset("Warning: could not load /res/player/swordsman_slash_sheet.png; using code-drawn slash fallback.");
+            swordsmanSlashSheet = null;
+            swordsmanSlashFrames = null;
+        }
+    }
+
+    private void sliceSwordsmanSlashSheet() {
+        int requiredWidth = SWORD_SLASH_FRAME_WIDTH * SWORD_SLASH_FRAME_COUNT;
+        if (swordsmanSlashSheet.getWidth() < requiredWidth || swordsmanSlashSheet.getHeight() < SWORD_SLASH_FRAME_HEIGHT) {
+            warnSwordsmanSlashAsset("Warning: /res/player/swordsman_slash_sheet.png is too small; using code-drawn slash fallback.");
+            swordsmanSlashFrames = null;
+            return;
+        }
+
+        swordsmanSlashFrames = new BufferedImage[SWORD_SLASH_FRAME_COUNT];
+        for (int i = 0; i < SWORD_SLASH_FRAME_COUNT; i++) {
+            swordsmanSlashFrames[i] = swordsmanSlashSheet.getSubimage(
+                    i * SWORD_SLASH_FRAME_WIDTH,
+                    0,
+                    SWORD_SLASH_FRAME_WIDTH,
+                    SWORD_SLASH_FRAME_HEIGHT);
+        }
+    }
+
+    private void warnSwordsmanSwordAsset(String message) {
+        if (warnedSwordsmanSwordAssetMissing == false) {
+            System.out.println(message);
+            warnedSwordsmanSwordAssetMissing = true;
+        }
+    }
+
+    private void warnSwordsmanSlashAsset(String message) {
+        if (warnedSwordsmanSlashAssetMissing == false) {
+            System.out.println(message);
+            warnedSwordsmanSlashAssetMissing = true;
         }
     }
 
@@ -263,8 +346,42 @@ public class Player extends Entity {
         return SWORD_BASE_WIDTH + meleeWidthBonus;
     }
 
+    private double getSwordAttackAngle() {
+        if (isBladeRushActive == true) {
+            return bladeRushAngle;
+        }
+
+        int frameIndex = getMeleeAttackFrameIndex();
+        if (frameIndex < 0) frameIndex = 0;
+        if (frameIndex >= SWORD_FRAME_LOCAL_ANGLE_DEGREES.length) frameIndex = SWORD_FRAME_LOCAL_ANGLE_DEGREES.length - 1;
+
+        return meleeAttackAngle + Math.toRadians(SWORD_FRAME_LOCAL_ANGLE_DEGREES[frameIndex]);
+    }
+
+    private int getSwordPivotWorldX() {
+        double angle = getSwordAttackAngle();
+        double forwardX = Math.cos(angle);
+        double forwardY = Math.sin(angle);
+        double sideX = -forwardY;
+
+        return x + gp.tileSize / 2 + (int)Math.round(forwardX * 12 + sideX * 4);
+    }
+
+    private int getSwordPivotWorldY() {
+        double angle = getSwordAttackAngle();
+        double forwardX = Math.cos(angle);
+        double forwardY = Math.sin(angle);
+        double sideY = forwardX;
+
+        return y + gp.tileSize / 2 + (int)Math.round(forwardY * 12 + sideY * 4);
+    }
+
     private boolean swordCapsuleIntersects(Rectangle bounds, int reach, int width) {
-        return capsuleIntersects(bounds, meleeAttackAngle, 12.0, reach, width);
+        return swordCapsuleIntersects(bounds, reach, width, getSwordAttackAngle());
+    }
+
+    private boolean swordCapsuleIntersects(Rectangle bounds, int reach, int width, double angle) {
+        return capsuleIntersectsFromStart(bounds, angle, getSwordPivotWorldX(), getSwordPivotWorldY(), reach, width);
     }
 
     private boolean bladeRushCapsuleIntersects(Rectangle bounds) {
@@ -281,6 +398,21 @@ public class Player extends Entity {
         double startY = centerY + dirY * startDistance;
         double endX = centerX + dirX * endDistance;
         double endY = centerY + dirY * endDistance;
+
+        double boundsCenterX = bounds.x + bounds.width / 2.0;
+        double boundsCenterY = bounds.y + bounds.height / 2.0;
+        double boundsRadius = Math.max(bounds.width, bounds.height) / 2.0;
+        double allowedDistance = width / 2.0 + boundsRadius;
+
+        return distancePointToSegment(boundsCenterX, boundsCenterY, startX, startY, endX, endY) <= allowedDistance;
+    }
+
+    private boolean capsuleIntersectsFromStart(Rectangle bounds, double angle, double startX, double startY, int reach, int width) {
+        double dirX = Math.cos(angle);
+        double dirY = Math.sin(angle);
+
+        double endX = startX + dirX * reach;
+        double endY = startY + dirY * reach;
 
         double boundsCenterX = bounds.x + bounds.width / 2.0;
         double boundsCenterY = bounds.y + bounds.height / 2.0;
@@ -380,22 +512,6 @@ public class Player extends Entity {
             int targetY = bulletCenterY + (int)(Math.sin(reflectAngle) * 1000);
             int reflectedDamage = Math.max(1, meleeDamage);
             gp.bulletList.add(new Bullet(gp, bulletCenterX, bulletCenterY, targetX, targetY, true, reflectedDamage));
-        }
-    }
-
-    private void trySwordAttackLunge() {
-        int oldX = x;
-        int oldY = y;
-
-        x += (int)Math.round(Math.cos(meleeAttackAngle) * 10);
-        y += (int)Math.round(Math.sin(meleeAttackAngle) * 10);
-
-        collisionOn = false;
-        gp.cChecker.checkTile(this);
-        if (collisionOn == true) {
-            x = oldX;
-            y = oldY;
-            collisionOn = false;
         }
     }
 
@@ -634,7 +750,6 @@ public class Player extends Entity {
                     isMeleeAttacking = true;
                     meleeAttackCounter = 0;
                     meleeAttackAngle = Math.atan2(targetWorldY - (y + gp.tileSize / 2), targetWorldX - (x + gp.tileSize / 2));
-                    trySwordAttackLunge();
                     meleeHitbox.setBounds(0, 0, 0, 0);
                     hitMonstersThisSwing.clear();
                     parriedBulletsThisSwing.clear();
@@ -667,19 +782,38 @@ public class Player extends Entity {
         }
     }
     
+    private BufferedImage getCurrentBodyDrawImage() {
+        BufferedImage image = null;
+
+        if (animationState == 0) {
+            if (idleFrames != null && idleFrames.length > 0) {
+                int frameIndex = spriteNum;
+                if (frameIndex < 0 || frameIndex >= idleFrames.length) frameIndex = 0;
+                image = idleFrames[frameIndex];
+            }
+        } else if (animationState == 1) {
+            if (walkFrames != null && walkFrames.length > 0) {
+                int frameIndex = spriteNum;
+                if (frameIndex < 0 || frameIndex >= walkFrames.length) frameIndex = 0;
+                image = walkFrames[frameIndex];
+            }
+        }
+
+        if (image == null && idleFrames != null && idleFrames.length > 0) {
+            image = idleFrames[0];
+        }
+
+        return image;
+    }
+
     private BufferedImage getCurrentPlayerDrawImage() {
         BufferedImage image = null;
 
         try {
-            // Melee attack animation has priority.
+            // During melee, the visible sword is drawn as a separate layer.
+            // A future body-only attack sheet can replace this branch without reintroducing baked slash frames.
             if (classType == 1 && isMeleeAttacking == true) {
-                if (attackFrames != null && attackFrames.length > 0) {
-                    int attackFrameIndex = getMeleeAttackFrameIndex();
-                    if (attackFrameIndex >= attackFrames.length) {
-                        attackFrameIndex = attackFrames.length - 1;
-                    }
-                    image = attackFrames[attackFrameIndex];
-                }
+                image = getCurrentBodyDrawImage();
             } 
             // Then ranged attack animation.
             else if (classType == 0 && isShooting == true) {
@@ -689,15 +823,7 @@ public class Player extends Entity {
                 image = attackFrames[attackFrameIndex];
             } 
             else {
-                if (animationState == 0) {
-                    if (idleFrames != null && spriteNum < idleFrames.length) {
-                        image = idleFrames[spriteNum];
-                    }
-                } else if (animationState == 1) {
-                    if (walkFrames != null && spriteNum < walkFrames.length) {
-                        image = walkFrames[spriteNum];
-                    }
-                }
+                image = getCurrentBodyDrawImage();
             }
         } catch (Exception e) {
             spriteNum = 0; 
@@ -766,6 +892,157 @@ public class Player extends Entity {
         g2.setTransform(oldTransform);
     }
 
+    private int getSwordPivotScreenX() {
+        return getSwordPivotWorldX() - x + gp.player.screenX;
+    }
+
+    private int getSwordPivotScreenY() {
+        return getSwordPivotWorldY() - y + gp.player.screenY;
+    }
+
+    private int getSwordVisualHeight() {
+        int bonusWidth = Math.max(0, getSwordWidth() - SWORD_BASE_WIDTH);
+        return Math.max(22, (int)Math.round(24 + getSwordWidth() * 0.18 + bonusWidth * 0.15));
+    }
+
+    private void drawSwordsmanWeapon(Graphics2D g2, boolean drawSlashEffect, boolean drawDebug) {
+        int pivotScreenX = getSwordPivotScreenX();
+        int pivotScreenY = getSwordPivotScreenY();
+        double swordAngle = getSwordAttackAngle();
+
+        drawSwordsmanSword(g2, pivotScreenX, pivotScreenY, swordAngle);
+
+        if (drawSlashEffect == true) {
+            drawSwordsmanSlash(g2, pivotScreenX, pivotScreenY, swordAngle);
+        }
+
+        if (drawDebug == true && DEBUG_SWORD_HITBOX == true) {
+            drawSwordHitboxDebug(g2, pivotScreenX, pivotScreenY, swordAngle);
+        }
+    }
+
+    private void drawSwordsmanSword(Graphics2D g2, int pivotScreenX, int pivotScreenY, double swordAngle) {
+        java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+        Composite oldComposite = g2.getComposite();
+        Stroke oldStroke = g2.getStroke();
+
+        g2.rotate(swordAngle, pivotScreenX, pivotScreenY);
+
+        if (swordsmanSwordImage != null) {
+            int reach = getSwordReach();
+            double scaleX = reach / (double)(SWORD_IMAGE_WIDTH - SWORD_IMAGE_PIVOT_X);
+            int drawWidth = Math.max(1, (int)Math.round(SWORD_IMAGE_WIDTH * scaleX));
+            int drawHeight = Math.max(1, getSwordVisualHeight());
+            double imageScaleX = drawWidth / (double)SWORD_IMAGE_WIDTH;
+            double imageScaleY = drawHeight / (double)SWORD_IMAGE_HEIGHT;
+            int scaledPivotX = (int)Math.round(SWORD_IMAGE_PIVOT_X * imageScaleX);
+            int scaledPivotY = (int)Math.round(SWORD_IMAGE_PIVOT_Y * imageScaleY);
+
+            g2.drawImage(swordsmanSwordImage,
+                    pivotScreenX - scaledPivotX,
+                    pivotScreenY - scaledPivotY,
+                    drawWidth,
+                    drawHeight,
+                    null);
+        } else {
+            drawFallbackSword(g2, pivotScreenX, pivotScreenY);
+        }
+
+        g2.setStroke(oldStroke);
+        g2.setComposite(oldComposite);
+        g2.setTransform(oldTransform);
+    }
+
+    private void drawFallbackSword(Graphics2D g2, int pivotScreenX, int pivotScreenY) {
+        int reach = getSwordReach();
+        float swordStroke = Math.max(6f, getSwordVisualHeight() * 0.42f);
+
+        g2.setStroke(new BasicStroke(swordStroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(210, 225, 235));
+        g2.drawLine(pivotScreenX, pivotScreenY, pivotScreenX + reach, pivotScreenY);
+
+        g2.setStroke(new BasicStroke(Math.max(2f, swordStroke * 0.22f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(250, 250, 255));
+        g2.drawLine(pivotScreenX + 10, pivotScreenY - 2, pivotScreenX + reach, pivotScreenY - 2);
+    }
+
+    private void drawSwordsmanSlash(Graphics2D g2, int pivotScreenX, int pivotScreenY, double swordAngle) {
+        java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+        Composite oldComposite = g2.getComposite();
+        Stroke oldStroke = g2.getStroke();
+
+        g2.rotate(swordAngle, pivotScreenX, pivotScreenY);
+
+        BufferedImage slashFrame = getCurrentSwordsmanSlashFrame();
+        if (slashFrame != null) {
+            int slashWidth = Math.max(48, getSwordReach() + 8);
+            int slashHeight = Math.max(36, getSwordWidth() + 12);
+            int slashX = pivotScreenX;
+            int slashY = pivotScreenY - slashHeight / 2;
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.72f));
+            g2.drawImage(slashFrame, slashX, slashY, slashWidth, slashHeight, null);
+        } else {
+            drawFallbackSlash(g2, pivotScreenX, pivotScreenY);
+        }
+
+        g2.setStroke(oldStroke);
+        g2.setComposite(oldComposite);
+        g2.setTransform(oldTransform);
+    }
+
+    private BufferedImage getCurrentSwordsmanSlashFrame() {
+        if (swordsmanSlashFrames == null || swordsmanSlashFrames.length == 0) return null;
+
+        int frameIndex = getMeleeAttackFrameIndex();
+        if (frameIndex < 0) frameIndex = 0;
+        if (frameIndex >= swordsmanSlashFrames.length) frameIndex = swordsmanSlashFrames.length - 1;
+        return swordsmanSlashFrames[frameIndex];
+    }
+
+    private void drawFallbackSlash(Graphics2D g2, int pivotScreenX, int pivotScreenY) {
+        int reach = getSwordReach();
+        int width = getSwordWidth();
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.36f));
+        g2.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(125, 235, 255));
+        g2.drawLine(pivotScreenX, pivotScreenY, pivotScreenX + reach, pivotScreenY);
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.72f));
+        g2.setStroke(new BasicStroke(Math.max(3, width / 5), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(245, 255, 255));
+        g2.drawLine(pivotScreenX + Math.max(8, reach / 5), pivotScreenY, pivotScreenX + reach, pivotScreenY);
+    }
+
+    private void drawSwordHitboxDebug(Graphics2D g2, int pivotScreenX, int pivotScreenY, double swordAngle) {
+        java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+        Composite oldComposite = g2.getComposite();
+        Stroke oldStroke = g2.getStroke();
+
+        int reach = getSwordReach();
+        int width = getSwordWidth();
+        int radius = width / 2;
+
+        g2.rotate(swordAngle, pivotScreenX, pivotScreenY);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.80f));
+
+        g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(0, 255, 255));
+        g2.drawLine(pivotScreenX, pivotScreenY - radius, pivotScreenX + reach, pivotScreenY - radius);
+        g2.drawLine(pivotScreenX, pivotScreenY + radius, pivotScreenX + reach, pivotScreenY + radius);
+        g2.drawOval(pivotScreenX - radius, pivotScreenY - radius, width, width);
+        g2.drawOval(pivotScreenX + reach - radius, pivotScreenY - radius, width, width);
+
+        g2.setColor(new Color(255, 80, 80));
+        g2.drawLine(pivotScreenX, pivotScreenY, pivotScreenX + reach, pivotScreenY);
+        g2.fillOval(pivotScreenX - 4, pivotScreenY - 4, 8, 8);
+
+        g2.setStroke(oldStroke);
+        g2.setComposite(oldComposite);
+        g2.setTransform(oldTransform);
+    }
+
     public void draw(Graphics2D g2) {
         if (invincible == true) {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
@@ -818,39 +1095,12 @@ public class Player extends Entity {
         g2.setColor(Color.RED);
         g2.drawLine(playerCenterX, playerCenterY, gp.mouseH.mouseX, gp.mouseH.mouseY);
 
-        // Swordsman swing effect.
-        if (classType == 1 && isMeleeAttacking == true && slashVFX != null && slashVFX.length > 0) {
-            double progress = (double) meleeAttackCounter / attackCooldown;
-            int vfxIndex = (int) (progress * slashVFX.length);
-            if (vfxIndex >= slashVFX.length) vfxIndex = slashVFX.length - 1;
-            BufferedImage currentSlash = slashVFX[vfxIndex];
-
-            java.awt.geom.AffineTransform oldTransform = g2.getTransform(); 
-            Composite oldComposite = g2.getComposite();
-            g2.rotate(meleeAttackAngle, playerCenterX, playerCenterY);
-
-            if (currentSlash != null) {
-                float slashAlpha = isMeleeAttackActiveFrame() ? 0.70f : 0.35f;
-                int vfxWidth = getSwordReach() + 24;
-                int vfxHeight = Math.max(48, getSwordWidth() + 28);
-                int vfxX = playerCenterX + 8;
-                int vfxY = playerCenterY - (vfxHeight / 2); 
-                
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, slashAlpha));
-                g2.drawImage(currentSlash, vfxX, vfxY, vfxWidth, vfxHeight, null);
+        if (classType == 1) {
+            if (isMeleeAttacking == true) {
+                drawSwordsmanWeapon(g2, isMeleeAttackActiveFrame(), true);
+            } else if (isBladeRushActive == true) {
+                drawSwordsmanWeapon(g2, false, false);
             }
-
-            g2.setComposite(oldComposite);
-
-            if (DEBUG_SWORD_HITBOX && isMeleeAttackActiveFrame()) {
-                Stroke oldStroke = g2.getStroke();
-                g2.setStroke(new BasicStroke(getSwordWidth(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.setColor(new Color(0, 255, 255, 100));
-                g2.drawLine(playerCenterX + 12, playerCenterY, playerCenterX + getSwordReach(), playerCenterY);
-                g2.setStroke(oldStroke);
-            }
-
-            g2.setTransform(oldTransform); 
         }
 
     }
