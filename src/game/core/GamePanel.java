@@ -619,13 +619,11 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
 
-            // Enter the portal after all monsters are gone.
-            if (monsterList.isEmpty()) {
+            // Enter the portal after the current stage is truly cleared.
+            if (shouldShowClearPortal()) {
                 updatePortalAnimation();
 
-                Rectangle doorWorldHitbox = new Rectangle(20 * tileSize, 20 * tileSize, tileSize * 2, tileSize);
-                
-                if (player.getBounds().intersects(doorWorldHitbox)) {
+                if (player.getBounds().intersects(getClearPortalHitbox())) {
                     handleClearPortalReached();
                 }
             } 
@@ -682,7 +680,7 @@ public class GamePanel extends JPanel implements Runnable {
             }
             
            // Portal appears after the room is cleared.
-        if (monsterList.isEmpty()) {
+        if (shouldShowClearPortal()) {
             int doorWorldX = 20 * tileSize;
             int doorWorldY = 20 * tileSize;
 
@@ -790,6 +788,24 @@ public class GamePanel extends JPanel implements Runnable {
         if (level == ICE_LEVEL) return 0.60;
         if (level == DESERT_LEVEL) return 0.52;
         return 0.60;
+    }
+
+    private boolean shouldShowClearPortal() {
+        if (mapTransitionInProgress) return false;
+
+        if (isNormalStageLevel(currentLevel)) {
+            return normalStageEnemiesSpawned && monsterList.isEmpty();
+        }
+
+        if (isBossLevel(currentLevel)) {
+            return bossFightStarted && monsterList.isEmpty();
+        }
+
+        return false;
+    }
+
+    private Rectangle getClearPortalHitbox() {
+        return new Rectangle(20 * tileSize, 20 * tileSize, tileSize * 2, tileSize);
     }
 
     private void handleClearPortalReached() {
@@ -928,8 +944,10 @@ public class GamePanel extends JPanel implements Runnable {
         boolean walkableAreasLoaded = loadNormalMapWalkableAreas(level);
 
         if (isBossLevel(level)) {
-            if (walkableAreasLoaded && loadNormalMapPropsForLevel(level) && loadBossBoundaryObstacles()) {
+            boolean propsLoaded = loadNormalMapPropsForLevel(level);
+            if (walkableAreasLoaded && propsLoaded) {
                 bossPropLayerActive = true;
+                loadBossBoundaryObstacles();
                 return;
             }
 
