@@ -1,0 +1,13 @@
+# Desert walkable whitelist - tuned v2
+# Format: id x y width height
+# World size: 1440x1440
+# Goal: desert is open, but avoid extreme map edges and large baked corner decorations.
+
+desert_center_sand 170 160 1100 900
+desert_top_center 390 65 640 260
+desert_left_mid 80 300 420 670
+desert_right_mid 940 260 420 640
+desert_bottom_left 90 900 410 400
+desert_bottom_center 390 1040 540 300
+desert_upper_right_open 760 120 370 340
+desert_lower_right_open 860 760 270 300

@@ -1092,9 +1092,6 @@ public class Player extends Entity {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
         }
 
-        g2.setColor(Color.RED);
-        g2.drawLine(playerCenterX, playerCenterY, gp.mouseH.mouseX, gp.mouseH.mouseY);
-
         if (classType == 1) {
             if (isMeleeAttacking == true) {
                 drawSwordsmanWeapon(g2, isMeleeAttackActiveFrame(), true);

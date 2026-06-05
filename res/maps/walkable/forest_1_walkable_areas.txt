@@ -1,0 +1,10 @@
+# Forest walkable whitelist - tuned v2
+# Format: id x y width height
+# World size: 1440x1440
+# Goal: block dense tree border while keeping the central clearing/path playable.
+
+forest_main_clearing 145 145 1150 990
+forest_upper_path 410 95 620 250
+forest_lower_path 430 1000 580 330
+forest_left_opening 95 360 260 640
+forest_right_opening 1085 360 260 640

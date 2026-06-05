@@ -92,10 +92,13 @@ public class GamePanel extends JPanel implements Runnable {
     private ArrayList<BossArenaCover> bossArenaCovers = new ArrayList<>();
     private ArrayList<NormalMapObstacle> normalMapObstacles = new ArrayList<>();
     private ArrayList<MapProp> normalMapProps = new ArrayList<>();
+    private ArrayList<WalkableArea> normalMapWalkableAreas = new ArrayList<>();
     private Map<String, MapPropDefinition> propDefinitions = new HashMap<>();
     private Set<String> warnedNormalObstacleFallbacks = new HashSet<>();
     private Set<String> warnedMapPropIssues = new HashSet<>();
+    private Set<String> warnedWalkableAreaIssues = new HashSet<>();
     private String loadedPropDefinitionPath = null;
+    private String loadedWalkableAreaPath = null;
     private boolean bossPropLayerActive = false;
     private boolean bossCoverFallbackActive = false;
     private BufferedImage brokenPedestalCoverImage;
@@ -199,6 +202,16 @@ public class GamePanel extends JPanel implements Runnable {
             this.blocksMovement = blocksMovement;
             this.blocksProjectiles = blocksProjectiles;
             this.source = source;
+        }
+    }
+
+    private static class WalkableArea {
+        String id;
+        Rectangle worldArea;
+
+        WalkableArea(String id, Rectangle worldArea) {
+            this.id = id;
+            this.worldArea = worldArea;
         }
     }
 
@@ -830,12 +843,16 @@ public class GamePanel extends JPanel implements Runnable {
     private void createNormalMapObstacles(int level) {
         normalMapObstacles.clear();
         normalMapProps.clear();
+        normalMapWalkableAreas.clear();
+        loadedWalkableAreaPath = null;
         bossPropLayerActive = false;
         bossCoverFallbackActive = false;
         if (isNormalMapLevel(level) == false) return;
 
+        boolean walkableAreasLoaded = loadNormalMapWalkableAreas(level);
+
         if (level == 10) {
-            if (loadNormalMapPropsForLevel(level) && loadBossBoundaryObstacles()) {
+            if (walkableAreasLoaded && loadNormalMapPropsForLevel(level) && loadBossBoundaryObstacles()) {
                 bossPropLayerActive = true;
                 return;
             }
@@ -863,7 +880,9 @@ public class GamePanel extends JPanel implements Runnable {
         repaint();
 
         String definitionInfo = (loadedPropDefinitionPath == null) ? "fallback obstacles" : loadedPropDefinitionPath;
-        System.out.println("Reloaded map props for level " + currentLevel + " using " + definitionInfo);
+        String walkableInfo = (loadedWalkableAreaPath == null) ? "no walkable whitelist" : loadedWalkableAreaPath;
+        System.out.println("Reloaded map props for level " + currentLevel + " using "
+                + definitionInfo + " and " + walkableInfo);
     }
 
     private boolean loadNormalMapPropsForLevel(int level) {
@@ -913,6 +932,111 @@ public class GamePanel extends JPanel implements Runnable {
             return "/res/maps/objects/boss_1_objects.txt";
         }
         return null;
+    }
+
+    private boolean loadNormalMapWalkableAreas(int level) {
+        String[] walkablePaths = getNormalMapWalkableAreaPaths(level);
+        if (walkablePaths == null) return false;
+
+        for (int i = 0; i < walkablePaths.length; i++) {
+            if (loadNormalMapWalkableAreasFromFile(walkablePaths[i])) {
+                loadedWalkableAreaPath = walkablePaths[i];
+                return true;
+            }
+        }
+
+        warnWalkableAreaIssue("level-" + level,
+                "Warning: no usable walkable area file for level " + level
+                        + "; background walkable whitelist disabled.");
+        return false;
+    }
+
+    private String[] getNormalMapWalkableAreaPaths(int level) {
+        if (level >= 1 && level <= 3) {
+            return new String[] {"/res/maps/walkable/forest_1_walkable_areas.txt"};
+        }
+        if (level >= 4 && level <= 6) {
+            return new String[] {"/res/maps/walkable/ice_1_walkable_areas.txt"};
+        }
+        if (level >= 7 && level <= 9) {
+            return new String[] {"/res/maps/walkable/desert_1_walkable_areas.txt"};
+        }
+        if (level == 10) {
+            return new String[] {
+                    "/res/maps/walkable/boss_1_walkable_areas.txt",
+                    "/res/maps/walkable/boss_1_walkable_areas_v2.txt"
+            };
+        }
+        return null;
+    }
+
+    private boolean loadNormalMapWalkableAreasFromFile(String path) {
+        ArrayList<WalkableArea> loadedAreas = new ArrayList<>();
+
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) {
+                return false;
+            }
+
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                String line;
+                int lineNumber = 0;
+
+                while ((line = br.readLine()) != null) {
+                    lineNumber++;
+                    String trimmed = line.trim();
+                    if (trimmed.length() == 0 || trimmed.startsWith("#")) continue;
+
+                    WalkableArea area = parseWalkableAreaLine(path, lineNumber, trimmed);
+                    if (area != null) {
+                        loadedAreas.add(area);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            warnWalkableAreaIssue(path, "Warning: could not read walkable area file " + path);
+            return false;
+        }
+
+        if (loadedAreas.isEmpty()) {
+            warnWalkableAreaIssue(path, "Warning: walkable area file has no usable areas " + path);
+            return false;
+        }
+
+        normalMapWalkableAreas.addAll(loadedAreas);
+        return true;
+    }
+
+    private WalkableArea parseWalkableAreaLine(String path, int lineNumber, String line) {
+        String[] parts = line.split("\\s+");
+        if (parts.length != 5) {
+            System.out.println("Warning: invalid walkable area line " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+
+        try {
+            String id = parts[0];
+            int worldX = Integer.parseInt(parts[1]);
+            int worldY = Integer.parseInt(parts[2]);
+            int width = Integer.parseInt(parts[3]);
+            int height = Integer.parseInt(parts[4]);
+
+            if (id.length() == 0 || width <= 0 || height <= 0) {
+                System.out.println("Warning: invalid walkable area values " + path + ":" + lineNumber + " -> " + line);
+                return null;
+            }
+
+            return new WalkableArea(id, new Rectangle(worldX, worldY, width, height));
+        } catch (NumberFormatException e) {
+            System.out.println("Warning: invalid walkable area number " + path + ":" + lineNumber + " -> " + line);
+            return null;
+        }
+    }
+
+    private void warnWalkableAreaIssue(String key, String message) {
+        if (warnedWalkableAreaIssues.add(key)) {
+            System.out.println(message);
+        }
     }
 
     private boolean loadBossBoundaryObstacles() {
@@ -1351,6 +1475,84 @@ public class GamePanel extends JPanel implements Runnable {
         return false;
     }
 
+    public boolean collidesWithMapCollision(Rectangle worldArea, boolean projectile) {
+        if (worldArea == null) return false;
+
+        if (isNormalBackgroundMapActive()) {
+            if (collidesWithWorldBounds(worldArea)) {
+                return true;
+            }
+            if (collidesWithWalkableAreaBoundary(worldArea, projectile)) {
+                return true;
+            }
+            if (collidesWithBossArenaCover(worldArea)) {
+                return true;
+            }
+            return collidesWithNormalMapObstacle(worldArea, projectile);
+        }
+
+        return false;
+    }
+
+    private boolean collidesWithWorldBounds(Rectangle worldArea) {
+        int worldWidth = maxWorldCol * tileSize;
+        int worldHeight = maxWorldRow * tileSize;
+        return worldArea.x < 0
+                || worldArea.y < 0
+                || worldArea.x + worldArea.width >= worldWidth
+                || worldArea.y + worldArea.height >= worldHeight;
+    }
+
+    public boolean collidesWithWalkableAreaBoundary(Rectangle worldArea, boolean projectile) {
+        if (isNormalBackgroundMapActive() == false || worldArea == null || normalMapWalkableAreas.isEmpty()) {
+            return false;
+        }
+
+        if (projectile) {
+            int centerX = worldArea.x + worldArea.width / 2;
+            int centerY = worldArea.y + worldArea.height / 2;
+            return isPointInsideNormalMapWalkableArea(centerX, centerY) == false;
+        }
+
+        return isWorldHitboxInsideNormalMapWalkableArea(worldArea) == false;
+    }
+
+    private boolean isWorldHitboxInsideNormalMapWalkableArea(Rectangle worldArea) {
+        int centerX = worldArea.x + worldArea.width / 2;
+        int centerY = worldArea.y + worldArea.height / 2;
+        int insetX = Math.max(1, Math.min(6, worldArea.width / 4));
+        int insetY = Math.max(1, Math.min(6, worldArea.height / 4));
+        int left = worldArea.x + insetX;
+        int right = worldArea.x + worldArea.width - 1 - insetX;
+        int top = worldArea.y + insetY;
+        int bottom = worldArea.y + worldArea.height - 1 - insetY;
+
+        if (right < left) {
+            left = centerX;
+            right = centerX;
+        }
+        if (bottom < top) {
+            top = centerY;
+            bottom = centerY;
+        }
+
+        return isPointInsideNormalMapWalkableArea(centerX, centerY)
+                && isPointInsideNormalMapWalkableArea(left, top)
+                && isPointInsideNormalMapWalkableArea(right, top)
+                && isPointInsideNormalMapWalkableArea(left, bottom)
+                && isPointInsideNormalMapWalkableArea(right, bottom);
+    }
+
+    private boolean isPointInsideNormalMapWalkableArea(int worldX, int worldY) {
+        for (int i = 0; i < normalMapWalkableAreas.size(); i++) {
+            WalkableArea area = normalMapWalkableAreas.get(i);
+            if (area != null && area.worldArea != null && area.worldArea.contains(worldX, worldY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void drawBossCoverDebugHitboxes(Graphics2D g2) {
         if (DEBUG_BOSS_COVER_HITBOX == false || isLevel10BossArenaCoverActive() == false) return;
 
@@ -1371,7 +1573,7 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setColor(Color.CYAN);
         for (int i = 0; i < bulletList.size(); i++) {
             drawWorldRect(g2, bulletList.get(i).getBounds());
-        }
+        }   
     }
 
     private void drawNormalMapObstacleDebug(Graphics2D g2) {
@@ -1381,6 +1583,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         drawActiveTileCollisionDebug(g2);
         drawWorldBoundsDebug(g2);
+        drawWalkableAreaDebug(g2);
 
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.20f));
         g2.setColor(new Color(255, 210, 0));
@@ -1416,10 +1619,31 @@ public class GamePanel extends JPanel implements Runnable {
 
     private Color getNormalMapDebugColor(NormalMapObstacle obstacle) {
         if (obstacle == null) return new Color(255, 90, 180);
-        if ("prop".equals(obstacle.source)) return new Color(0, 190, 255);
-        if ("boundary".equals(obstacle.source)) return new Color(170, 90, 255);
+        if ("prop".equals(obstacle.source)) return new Color(20, 220, 100);
+        if ("boundary".equals(obstacle.source)) return new Color(255, 75, 75);
         if ("boss_fallback".equals(obstacle.source)) return new Color(255, 90, 180);
         return new Color(255, 150, 40);
+    }
+
+    private void drawWalkableAreaDebug(Graphics2D g2) {
+        if (normalMapWalkableAreas.isEmpty()) return;
+
+        for (int i = 0; i < normalMapWalkableAreas.size(); i++) {
+            WalkableArea area = normalMapWalkableAreas.get(i);
+            if (area == null || area.worldArea == null) continue;
+
+            int screenX = area.worldArea.x - player.x + player.screenX;
+            int screenY = area.worldArea.y - player.y + player.screenY;
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.12f));
+            g2.setColor(new Color(0, 210, 255));
+            g2.fillRect(screenX, screenY, area.worldArea.width, area.worldArea.height);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.80f));
+            g2.setColor(new Color(95, 235, 255));
+            g2.drawRect(screenX, screenY, area.worldArea.width, area.worldArea.height);
+            g2.drawString(area.id, screenX + 4, screenY + 14);
+        }
     }
 
     private void drawActiveTileCollisionDebug(Graphics2D g2) {
@@ -1506,6 +1730,7 @@ public class GamePanel extends JPanel implements Runnable {
         int spawned = 0;
         
         int attempts = 0; 
+        boolean useImageMapCollision = isNormalBackgroundMapActive();
         
         // Stop trying if the map has no good spawn spots.
         while (spawned < monsterCount && attempts < 800) {
@@ -1514,14 +1739,17 @@ public class GamePanel extends JPanel implements Runnable {
             int col = (int)(Math.random() * (maxWorldCol - 2)) + 1;
             int row = (int)(Math.random() * (maxWorldRow - 2)) + 1;
 
-            if (tileM.mapTileNum[col][row] == 0) {
+            if (useImageMapCollision || tileM.mapTileNum[col][row] == 0) {
                 int distance = Math.abs(col - 15) + Math.abs(row - 15);
                 
                 if (distance > 8) { 
                     int worldX = col * tileSize;
                     int worldY = row * tileSize;
                     Rectangle spawnHitbox = new Rectangle(worldX + 8, worldY + 8, 32, 32);
-                    if (collidesWithNormalMapObstacle(spawnHitbox, false)) {
+                    if (useImageMapCollision && collidesWithMapCollision(spawnHitbox, false)) {
+                        continue;
+                    }
+                    if (useImageMapCollision == false && collidesWithNormalMapObstacle(spawnHitbox, false)) {
                         continue;
                     }
 

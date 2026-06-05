@@ -23,6 +23,16 @@ public class CollisionChecker {
         int entityRightWorldX = entity.x + entity.solidArea.x + entity.solidArea.width;
         int entityTopWorldY = entity.y + entity.solidArea.y;
         int entityBottomWorldY = entity.y + entity.solidArea.y + entity.solidArea.height;
+        Rectangle worldHitbox = new Rectangle(entity.x + entity.solidArea.x, entity.y + entity.solidArea.y,
+                entity.solidArea.width, entity.solidArea.height);
+        boolean projectile = entity instanceof Bullet;
+
+        if (gp.isNormalBackgroundMapActive()) {
+            if (gp.collidesWithMapCollision(worldHitbox, projectile)) {
+                entity.collisionOn = true;
+            }
+            return;
+        }
 
         if (entityLeftWorldX < 0 || entityRightWorldX >= gp.maxWorldCol * gp.tileSize
                 || entityTopWorldY < 0 || entityBottomWorldY >= gp.maxWorldRow * gp.tileSize) {
@@ -39,24 +49,20 @@ public class CollisionChecker {
         if (entityTopRow < 0) entityTopRow = 0;
         if (entityBottomRow >= gp.maxWorldRow) entityBottomRow = gp.maxWorldRow - 1;
 
-        if (gp.isNormalBackgroundMapActive() == false) {
-            int tileNum1 = gp.tileM.mapTileNum[entityLeftCol][entityTopRow];
-            int tileNum2 = gp.tileM.mapTileNum[entityRightCol][entityTopRow];
-            int tileNum3 = gp.tileM.mapTileNum[entityLeftCol][entityBottomRow];
-            int tileNum4 = gp.tileM.mapTileNum[entityRightCol][entityBottomRow];
+        int tileNum1 = gp.tileM.mapTileNum[entityLeftCol][entityTopRow];
+        int tileNum2 = gp.tileM.mapTileNum[entityRightCol][entityTopRow];
+        int tileNum3 = gp.tileM.mapTileNum[entityLeftCol][entityBottomRow];
+        int tileNum4 = gp.tileM.mapTileNum[entityRightCol][entityBottomRow];
 
-            if (gp.tileM.isCollisionTile(tileNum1) || gp.tileM.isCollisionTile(tileNum2) ||
-                gp.tileM.isCollisionTile(tileNum3) || gp.tileM.isCollisionTile(tileNum4)) {
-                entity.collisionOn = true;
-            }
+        if (gp.tileM.isCollisionTile(tileNum1) || gp.tileM.isCollisionTile(tileNum2) ||
+            gp.tileM.isCollisionTile(tileNum3) || gp.tileM.isCollisionTile(tileNum4)) {
+            entity.collisionOn = true;
         }
 
-        Rectangle worldHitbox = new Rectangle(entity.x + entity.solidArea.x, entity.y + entity.solidArea.y,
-                entity.solidArea.width, entity.solidArea.height);
         if (gp.collidesWithBossArenaCover(worldHitbox)) {
             entity.collisionOn = true;
         }
-        if (gp.collidesWithNormalMapObstacle(worldHitbox, entity instanceof Bullet)) {
+        if (gp.collidesWithNormalMapObstacle(worldHitbox, projectile)) {
             entity.collisionOn = true;
         }
     }
@@ -80,23 +86,24 @@ public class CollisionChecker {
         }
 
         Rectangle worldHitbox = new Rectangle(leftX, topY, rightX - leftX, bottomY - topY);
+        if (gp.isNormalBackgroundMapActive()) {
+            return gp.collidesWithMapCollision(worldHitbox, true);
+        }
         if (gp.collidesWithNormalMapObstacle(worldHitbox, true)) {
             return true;
         }
 
-        if (gp.isNormalBackgroundMapActive() == false) {
-            int tileNum1 = gp.tileM.mapTileNum[leftCol][topRow];
-            int tileNum2 = gp.tileM.mapTileNum[rightCol][topRow];
-            int tileNum3 = gp.tileM.mapTileNum[leftCol][bottomRow];
-            int tileNum4 = gp.tileM.mapTileNum[rightCol][bottomRow];
+        int tileNum1 = gp.tileM.mapTileNum[leftCol][topRow];
+        int tileNum2 = gp.tileM.mapTileNum[rightCol][topRow];
+        int tileNum3 = gp.tileM.mapTileNum[leftCol][bottomRow];
+        int tileNum4 = gp.tileM.mapTileNum[rightCol][bottomRow];
 
-            // Missing tiles should not crash collision checks.
-            if ((gp.tileM.tile[tileNum1] != null && gp.tileM.tile[tileNum1].collision) ||
-                (gp.tileM.tile[tileNum2] != null && gp.tileM.tile[tileNum2].collision) ||
-                (gp.tileM.tile[tileNum3] != null && gp.tileM.tile[tileNum3].collision) ||
-                (gp.tileM.tile[tileNum4] != null && gp.tileM.tile[tileNum4].collision)) {
-                return true;
-            }
+        // Missing tiles should not crash collision checks.
+        if ((gp.tileM.tile[tileNum1] != null && gp.tileM.tile[tileNum1].collision) ||
+            (gp.tileM.tile[tileNum2] != null && gp.tileM.tile[tileNum2].collision) ||
+            (gp.tileM.tile[tileNum3] != null && gp.tileM.tile[tileNum3].collision) ||
+            (gp.tileM.tile[tileNum4] != null && gp.tileM.tile[tileNum4].collision)) {
+            return true;
         }
 
         return false; 

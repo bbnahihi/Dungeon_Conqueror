@@ -1,0 +1,19 @@
+# Boss arena walkable whitelist - tuned v2
+# Format: id x y width height
+# World size: 1440x1440
+# Goal: player/boss can move only on stone floor, not walls, railings, pillars, or purple void.
+# Keep rectangles overlapping to avoid seam-blocking.
+
+boss_center_floor 340 400 760 610
+boss_upper_floor 500 255 440 240
+boss_lower_floor 360 900 630 420
+
+boss_left_mid_floor 155 510 275 360
+boss_right_mid_floor 1010 510 275 360
+
+boss_upper_left_floor 205 285 250 230
+boss_upper_right_floor 985 285 250 230
+boss_lower_left_floor 205 850 250 300
+boss_lower_right_floor 985 850 300 300
+
+boss_bottom_entry 570 1120 300 220

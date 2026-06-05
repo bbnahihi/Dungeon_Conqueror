@@ -1,0 +1,12 @@
+# Ice walkable whitelist - tuned v2
+# Format: id x y width height
+# World size: 1440x1440
+# Goal: block ice cliffs, edge ruins, and mountain borders while keeping snowy floor playable.
+
+ice_center_field 170 150 1100 920
+ice_upper_field 390 95 660 260
+ice_lower_field 390 990 660 330
+ice_left_field 95 410 300 620
+ice_right_field 1045 410 300 620
+ice_mid_left_patch 150 760 420 260
+ice_mid_right_patch 870 760 420 260
