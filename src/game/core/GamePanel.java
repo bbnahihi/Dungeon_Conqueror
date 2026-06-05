@@ -69,13 +69,24 @@ public class GamePanel extends JPanel implements Runnable {
     public CollisionChecker cChecker = new CollisionChecker(this);
     public PathFinder pFinder = new PathFinder(this);
     public UI ui = new UI(this);
-    public int currentLevel = 1;
+    private static final int FOREST_LEVEL = 1;
+    private static final int ICE_LEVEL = 2;
+    private static final int DESERT_LEVEL = 3;
+    private static final int LAST_NORMAL_LEVEL = 3;
+    private static final int BOSS_LEVEL = 10;
+    private static final int NO_PENDING_LEVEL = -1;
+    public int currentLevel = FOREST_LEVEL;
     public int score = 0;
     public int bestScore = 0;
     public StatsTracker statsTracker = new StatsTracker();
     public StoryManager storyManager = new StoryManager();
     private final String saveFileName = "save.dat";
     private int pendingStoryClassType = 0;
+    private int pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
+    private boolean levelClearHandled = false;
+    private boolean bossFightStarted = false;
+    private boolean mapTransitionInProgress = false;
+    private boolean normalStageEnemiesSpawned = false;
     private BufferedImage bossArenaImage;
     private BufferedImage portalSpriteSheet;
     private BufferedImage[] portalFrames;
@@ -609,11 +620,7 @@ public class GamePanel extends JPanel implements Runnable {
                 Rectangle doorWorldHitbox = new Rectangle(20 * tileSize, 20 * tileSize, tileSize * 2, tileSize);
                 
                 if (player.getBounds().intersects(doorWorldHitbox)) {
-                    if (currentLevel < 10) { 
-                        nextLevel();
-                    } else {
-                        beginEndingStory();
-                    }
+                    handleClearPortalReached();
                 }
             } 
             
@@ -648,14 +655,14 @@ public class GamePanel extends JPanel implements Runnable {
         } else if (gameState == storyState) {
             ui.drawStoryScreen(g2);
         } else {
-            if (currentLevel == 10 && bossArenaImage != null) {
+            if (isBossLevel(currentLevel) && bossArenaImage != null) {
                 drawBossArenaBackground(g2);
             } else if (isNormalMapLevel()) {
                 drawNormalMapBackground(g2);
             } else {
                 tileM.draw(g2);
             }
-            if (currentLevel == 10) {
+            if (isBossLevel(currentLevel)) {
                 if (bossPropLayerActive) {
                     drawNormalMapProps(g2);
                 } else {
@@ -690,7 +697,7 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
 
                 g2.setColor(Color.WHITE);
-                String msg = (currentLevel < 10) ? "PORTAL" : "VICTORY";
+                String msg = isBossLevel(currentLevel) ? "VICTORY" : "PORTAL";
                 g2.drawString(msg, doorScreenX, doorScreenY - 10);
             }
         }
@@ -746,12 +753,74 @@ public class GamePanel extends JPanel implements Runnable {
                 maxWorldCol * tileSize, maxWorldRow * tileSize, null);
     }
 
+    private boolean isNormalStageLevel(int level) {
+        return level >= FOREST_LEVEL && level <= LAST_NORMAL_LEVEL;
+    }
+
+    private boolean isBossLevel(int level) {
+        return level == BOSS_LEVEL;
+    }
+
+    private int getNextLevelAfterClear(int level) {
+        if (level == FOREST_LEVEL) return ICE_LEVEL;
+        if (level == ICE_LEVEL) return DESERT_LEVEL;
+        if (level == DESERT_LEVEL) return BOSS_LEVEL;
+        return NO_PENDING_LEVEL;
+    }
+
+    private boolean shouldGrantUpgradeAfterLevel(int level) {
+        return isNormalStageLevel(level);
+    }
+
+    private int getNormalStageMonsterCount(int level) {
+        if (level == FOREST_LEVEL) return 12;
+        if (level == ICE_LEVEL) return 15;
+        if (level == DESERT_LEVEL) return 18;
+        return 0;
+    }
+
+    private double getMeleeSpawnRate(int level) {
+        if (level == FOREST_LEVEL) return 0.70;
+        if (level == ICE_LEVEL) return 0.60;
+        if (level == DESERT_LEVEL) return 0.52;
+        return 0.60;
+    }
+
+    private void handleClearPortalReached() {
+        if (gameState != playState || mapTransitionInProgress || levelClearHandled) return;
+
+        if (isBossLevel(currentLevel)) {
+            if (bossFightStarted == false || monsterList.isEmpty() == false) return;
+
+            levelClearHandled = true;
+            beginEndingStory();
+            return;
+        }
+
+        if (isNormalStageLevel(currentLevel)) {
+            if (normalStageEnemiesSpawned == false || monsterList.isEmpty() == false) return;
+            handleNormalStageCleared();
+        }
+    }
+
+    private void handleNormalStageCleared() {
+        if (levelClearHandled) return;
+
+        int nextLevel = getNextLevelAfterClear(currentLevel);
+        if (nextLevel == NO_PENDING_LEVEL) return;
+
+        levelClearHandled = true;
+        pendingLevelAfterUpgrade = nextLevel;
+        upgradeManager.rollUpgrades();
+        gameState = upgradeState;
+    }
+
     private boolean isNormalMapLevel() {
         return isNormalMapLevel(currentLevel);
     }
 
     private boolean isNormalMapLevel(int level) {
-        return level >= 1 && level <= 10;
+        return isNormalStageLevel(level) || isBossLevel(level);
     }
 
     public boolean isNormalBackgroundMapActive() {
@@ -772,16 +841,16 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private BufferedImage getCurrentNormalMapBackground() {
-        if (currentLevel >= 1 && currentLevel <= 3) {
+        if (currentLevel == FOREST_LEVEL) {
             return forestBackgroundImage;
         }
-        if (currentLevel >= 4 && currentLevel <= 6) {
+        if (currentLevel == ICE_LEVEL) {
             return iceBackgroundImage;
         }
-        if (currentLevel >= 7 && currentLevel <= 9) {
+        if (currentLevel == DESERT_LEVEL) {
             return desertBackgroundImage;
         }
-        if (currentLevel == 10) {
+        if (isBossLevel(currentLevel)) {
             return bossArenaImage;
         }
         return null;
@@ -837,7 +906,7 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public boolean isLevel10BossArenaCoverActive() {
-        return currentLevel == 10 && bossCoverFallbackActive && bossArenaCovers.isEmpty() == false;
+        return isBossLevel(currentLevel) && bossCoverFallbackActive && bossArenaCovers.isEmpty() == false;
     }
 
     private void createNormalMapObstacles(int level) {
@@ -851,7 +920,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         boolean walkableAreasLoaded = loadNormalMapWalkableAreas(level);
 
-        if (level == 10) {
+        if (isBossLevel(level)) {
             if (walkableAreasLoaded && loadNormalMapPropsForLevel(level) && loadBossBoundaryObstacles()) {
                 bossPropLayerActive = true;
                 return;
@@ -904,7 +973,7 @@ public class GamePanel extends JPanel implements Runnable {
     private void loadFallbackNormalMapObstacles(int level) {
         loadedPropDefinitionPath = null;
 
-        if (level == 10) {
+        if (isBossLevel(level)) {
             createBossCoverFallbackNormalMapObstacles();
             bossCoverFallbackActive = bossArenaCovers.isEmpty() == false;
             return;
@@ -919,16 +988,16 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private String getNormalMapObjectFilePath(int level) {
-        if (level >= 1 && level <= 3) {
+        if (level == FOREST_LEVEL) {
             return "/res/maps/objects/forest_1_objects.txt";
         }
-        if (level >= 4 && level <= 6) {
+        if (level == ICE_LEVEL) {
             return "/res/maps/objects/ice_1_objects.txt";
         }
-        if (level >= 7 && level <= 9) {
+        if (level == DESERT_LEVEL) {
             return "/res/maps/objects/desert_1_objects.txt";
         }
-        if (level == 10) {
+        if (isBossLevel(level)) {
             return "/res/maps/objects/boss_1_objects.txt";
         }
         return null;
@@ -952,16 +1021,16 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private String[] getNormalMapWalkableAreaPaths(int level) {
-        if (level >= 1 && level <= 3) {
+        if (level == FOREST_LEVEL) {
             return new String[] {"/res/maps/walkable/forest_1_walkable_areas.txt"};
         }
-        if (level >= 4 && level <= 6) {
+        if (level == ICE_LEVEL) {
             return new String[] {"/res/maps/walkable/ice_1_walkable_areas.txt"};
         }
-        if (level >= 7 && level <= 9) {
+        if (level == DESERT_LEVEL) {
             return new String[] {"/res/maps/walkable/desert_1_walkable_areas.txt"};
         }
-        if (level == 10) {
+        if (isBossLevel(level)) {
             return new String[] {
                     "/res/maps/walkable/boss_1_walkable_areas.txt",
                     "/res/maps/walkable/boss_1_walkable_areas_v2.txt"
@@ -1298,13 +1367,13 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private String getNormalMapObstacleFilePath(int level) {
-        if (level >= 1 && level <= 3) {
+        if (level == FOREST_LEVEL) {
             return "/res/maps/obstacles/forest_1_obstacles.txt";
         }
-        if (level >= 4 && level <= 6) {
+        if (level == ICE_LEVEL) {
             return "/res/maps/obstacles/ice_1_obstacles.txt";
         }
-        if (level >= 7 && level <= 9) {
+        if (level == DESERT_LEVEL) {
             return "/res/maps/obstacles/desert_1_obstacles.txt";
         }
         return null;
@@ -1713,20 +1782,22 @@ public class GamePanel extends JPanel implements Runnable {
         g2.drawImage(image, screenX, screenY, drawWidth, drawHeight, null);
     }
 
-    public void spawnMonsters(int level) {
-        // Level 10 only spawns the final boss.
-        if (level == 10) {
+    public int spawnMonsters(int level) {
+        // The boss stage only spawns the final boss.
+        if (isBossLevel(level)) {
             int bossWorldX = (maxWorldCol / 2) * tileSize;
             int bossWorldY = (maxWorldRow / 4) * tileSize;
             
             Monster boss = new Monster(this, bossWorldX, bossWorldY, 3);
             difficulty.applyBossStats(boss);
             monsterList.add(boss);
-            return;
+            bossFightStarted = true;
+            return 1;
         }
+        if (isNormalStageLevel(level) == false) return 0;
 
         // Enemy count and types scale with level.
-        int monsterCount = difficulty.applyEnemyCount(10 + (level * 4)); 
+        int monsterCount = difficulty.applyEnemyCount(getNormalStageMonsterCount(level));
         int spawned = 0;
         
         int attempts = 0; 
@@ -1754,24 +1825,20 @@ public class GamePanel extends JPanel implements Runnable {
                     }
 
                     // Later levels add more ranged monsters.
-                    double meleeRate = Math.max(0.35, 0.65 - level * 0.03);
+                    double meleeRate = getMeleeSpawnRate(level);
                     int type = (Math.random() < meleeRate) ? 1 : 2; 
                     
                     Monster m = new Monster(this, worldX, worldY, type);
                     
                     // Elite monsters start appearing from level 3.
                     double eliteChance = Math.min(0.25, 0.08 + level * 0.015);
-                    if (level >= 3 && type == 1 && Math.random() < eliteChance) {
+                    if (level == DESERT_LEVEL && type == 1 && Math.random() < eliteChance) {
                         m.transformToElite(); 
                     }
 
                     // Extra scaling keeps item drops from making later levels too easy.
                     m.maxHp += Math.max(0, level / 2);
-                    if (level >= 6) m.speed += 1;
-                    if (type == 2 && level >= 4) m.maxHp += 1;
-
-                    if (currentTheme == THEME_DUNGEON) m.maxHp += 2; 
-                    else if (currentTheme == THEME_DESERT) m.speed += 1; 
+                    if (level == DESERT_LEVEL) m.speed += 1;
                     
                     difficulty.applyMonsterStats(m);
                     
@@ -1782,31 +1849,34 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
         }
+        return spawned;
     }
 
     public void nextLevel() {
-        // Move away from the portal before loading the next level.
-        player.x = tileSize * 15;
-        player.y = tileSize * 15;
         player.resetSwordCombatState();
 
-        currentLevel++;
-        statsTracker.setLevelReached(currentLevel);
+        if (gameState != playState || isNormalStageLevel(currentLevel) == false || levelClearHandled) return;
 
-        // Show upgrades after every 3 cleared levels.
-        if ((currentLevel - 1) % 3 == 0 && currentLevel <= 10) {
-            upgradeManager.rollUpgrades();
-            gameState = upgradeState; 
-        } else {
-            transitionToLevelWithStory(currentLevel);
-        }
+        handleNormalStageCleared();
     }
 
     public void selectUpgrade(int choiceIndex) {
+        int nextLevel = pendingLevelAfterUpgrade;
+        pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
+        if (nextLevel == NO_PENDING_LEVEL) {
+            return;
+        }
+
         if (upgradeManager.applySelectedUpgrade(choiceIndex)) {
             statsTracker.recordUpgradeChosen();
         }
-        transitionToLevelWithStory(currentLevel);
+
+        if (nextLevel == BOSS_LEVEL) {
+            transitionToLevelWithStory(nextLevel);
+        } else {
+            transitionToNewMap(nextLevel);
+            gameState = playState;
+        }
     }
 
     public void cycleDifficulty() {
@@ -1959,7 +2029,12 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void startRunAfterIntro() {
         gameState = playState;
-        currentLevel = 1;
+        currentLevel = FOREST_LEVEL;
+        pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
+        levelClearHandled = false;
+        bossFightStarted = false;
+        mapTransitionInProgress = false;
+        normalStageEnemiesSpawned = false;
         player.setDefaultValues();
         particleList.clear();
         player.setupClass(pendingStoryClassType);
@@ -1973,14 +2048,14 @@ public class GamePanel extends JPanel implements Runnable {
             startRunAfterIntro();
         } else if (action == StoryAction.START_BOSS) {
             gameState = playState;
-            transitionToNewMap(10);
+            transitionToNewMap(BOSS_LEVEL);
         } else if (action == StoryAction.SHOW_WIN) {
             gameState = gameWinState;
         }
     }
 
     private void transitionToLevelWithStory(int level) {
-        if (level == 10 && storyManager.shouldShowPreBossStory()) {
+        if (isBossLevel(level) && storyManager.shouldShowPreBossStory()) {
             storyManager.begin(StoryMoment.PRE_BOSS, StoryAction.START_BOSS);
             gameState = storyState;
         } else {
@@ -2144,50 +2219,66 @@ public class GamePanel extends JPanel implements Runnable {
 
     // Called when starting a new level or entering the portal.
     public void transitionToNewMap(int level) {
-        if (level == 1) {
-            statsTracker.startRun(level);
-        }
-        statsTracker.setLevelReached(level);
-        
-        bulletList.clear(); 
-        monsterList.clear(); 
-        itemList.clear(); 
+        mapTransitionInProgress = true;
+        try {
+            currentLevel = level;
+            pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
+            levelClearHandled = false;
+            bossFightStarted = false;
+            normalStageEnemiesSpawned = false;
+            if (level == FOREST_LEVEL) {
+                statsTracker.startRun(level);
+            }
+            statsTracker.setLevelReached(level);
 
-        // Level groups use fixed themes.
-        if (level >= 1 && level <= 3) {
-            currentTheme = THEME_FOREST;
-        } else if (level >= 4 && level <= 6) {
-            currentTheme = THEME_DUNGEON;
-        } else if (level >= 7 && level <= 9) {
-            currentTheme = THEME_DESERT;
-        } else if (level >= 10) {
-            currentTheme = THEME_DUNGEON;
-        }
+            bulletList.clear();
+            monsterList.clear();
+            itemList.clear();
 
-        // Reload tile images before reading the new map.
-        tileM.getTileInfo(); 
-        tileM.loadMap(level); 
-        createNormalMapObstacles(level);
+            // Shortened stages use fixed themes.
+            if (level == FOREST_LEVEL) {
+                currentTheme = THEME_FOREST;
+            } else if (level == ICE_LEVEL) {
+                currentTheme = THEME_DUNGEON;
+            } else if (level == DESERT_LEVEL) {
+                currentTheme = THEME_DESERT;
+            } else if (isBossLevel(level)) {
+                currentTheme = THEME_DUNGEON;
+            }
 
-        // No auto-heal between levels; hearts are the healing source.
+            // Reload tile images before reading the new map.
+            tileM.getTileInfo();
+            tileM.loadMap(level);
+            createNormalMapObstacles(level);
 
-        if (level == 10) {
-            player.x = (maxWorldCol / 2) * tileSize;
-            player.y = (maxWorldRow - 4) * tileSize;
-        } else {
-            player.x = tileSize * 15;
-            player.y = tileSize * 15;
-        }
-        player.resetSwordCombatState();
-        player.invincible = true;
-        player.invincibleCounter = 0;
-        
-        spawnMonsters(level);
-        
-        if (level == 1) {
-            playMusic(0);
-        } else if (level == 10) {
-            playMusic(8);
+            // No auto-heal between levels; hearts are the healing source.
+
+            if (isBossLevel(level)) {
+                player.x = (maxWorldCol / 2) * tileSize;
+                player.y = (maxWorldRow - 4) * tileSize;
+            } else {
+                player.x = tileSize * 15;
+                player.y = tileSize * 15;
+            }
+            player.resetSwordCombatState();
+            player.invincible = true;
+            player.invincibleCounter = 0;
+
+            int spawnedCount = spawnMonsters(level);
+            if (isNormalStageLevel(level)) {
+                normalStageEnemiesSpawned = spawnedCount > 0;
+                if (normalStageEnemiesSpawned == false) {
+                    System.out.println("Warning: no monsters spawned for level " + level);
+                }
+            }
+
+            if (level == FOREST_LEVEL) {
+                playMusic(0);
+            } else if (isBossLevel(level)) {
+                playMusic(8);
+            }
+        } finally {
+            mapTransitionInProgress = false;
         }
     }
 
@@ -2267,7 +2358,12 @@ public class GamePanel extends JPanel implements Runnable {
 
     // Reset the current run.
     public void resetGame() {
-        currentLevel = 1;
+        currentLevel = FOREST_LEVEL;
+        pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
+        levelClearHandled = false;
+        bossFightStarted = false;
+        mapTransitionInProgress = false;
+        normalStageEnemiesSpawned = false;
         score = 0;
         statsTracker.reset();
         storyManager.resetRunFlags();

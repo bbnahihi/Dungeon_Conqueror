@@ -42,7 +42,7 @@ public class Monster extends Entity {
     private static final int BOSS_RIFT_SPREAD_COOLDOWN = 150;
     private static final int BOSS_ABYSS_BARRAGE_COOLDOWN = 58;
     private static final int BOSS_RIFT_SUMMON_COOLDOWN = 210;
-    private static final int BOSS_MAX_SUMMONED_MINIONS = 3;
+    private static final int BOSS_MAX_SUMMONED_MINIONS = 2;
     private static final int BOSS_ANIM_IDLE = 0;
     private static final int BOSS_ANIM_ATTACK = 1;
     private static final int BOSS_ANIM_PHASE = 2;
@@ -94,7 +94,7 @@ public class Monster extends Entity {
             this.solidArea = new Rectangle(8, 8, 32, 32);   
         } else if (type == 3) {
             this.speed = 4;
-            this.maxHp = 500; 
+            this.maxHp = 300;
             this.solidArea = new Rectangle(16, 16, 64, 64);
         }
         if (type == 3 && currentState != null) {
@@ -253,7 +253,7 @@ public class Monster extends Entity {
                 gp.bulletList.add(b);
                 
                 // Ranged monsters shoot faster on later levels.
-                shootCooldown = gp.difficulty.applyRangedCooldown(Math.max(35, 75 - gp.currentLevel * 4)); 
+                shootCooldown = gp.difficulty.applyRangedCooldown(Math.max(55, 75 - gp.currentLevel * 5));
             }
             if (shootCooldown > 0) shootCooldown--;
         }
@@ -361,7 +361,7 @@ public class Monster extends Entity {
         startBossCastAnimation();
 
         int availableSlots = BOSS_MAX_SUMMONED_MINIONS - countBossMinions();
-        int summonCount = Math.min(2, availableSlots);
+        int summonCount = Math.min(1, availableSlots);
         int[][] offsets = {
                 {-gp.tileSize, gp.tileSize},
                 {gp.tileSize * 2, gp.tileSize},
