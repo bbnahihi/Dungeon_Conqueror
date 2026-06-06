@@ -121,7 +121,7 @@ public class KeyHandler implements KeyListener {
             if (code == KeyEvent.VK_SPACE) spacePressed = true;
 
             if (code == KeyEvent.VK_F8) {
-                gp.reloadCurrentNormalMapProps();
+                gp.reloadCurrentMapData();
             }
             
             if (code == KeyEvent.VK_P || code == KeyEvent.VK_ESCAPE) { 

@@ -94,7 +94,6 @@ public class GamePanel extends JPanel implements Runnable {
     private boolean normalStageEnemiesSpawned = false;
     private BufferedImage bossArenaImage;
     private BufferedImage virtualScreen;
-    private Graphics2D virtualGraphics;
     private int screenShakeTimer = 0;
     private int screenShakeDuration = 0;
     private int screenShakeMagnitude = 0;
@@ -116,6 +115,7 @@ public class GamePanel extends JPanel implements Runnable {
     private static final int PORTAL_FRAME_DELAY = 6;
     private static final boolean DEBUG_BOSS_COVER_HITBOX = false;
     private static final boolean DEBUG_NORMAL_MAP_OBSTACLES = false;
+    private static final boolean DEBUG_RESOURCE_LOGS = false;
     private BufferedImage forestBackgroundImage;
     private BufferedImage iceBackgroundImage;
     private BufferedImage desertBackgroundImage;
@@ -547,10 +547,14 @@ public class GamePanel extends JPanel implements Runnable {
                     slicePortalSpriteSheet();
                 }
             } else {
-                System.out.println("Warning: could not load portal sprite sheet /res/portal/portal_vortex_8frame.png");
+                if (DEBUG_RESOURCE_LOGS) {
+                    System.out.println("Warning: could not load portal sprite sheet /res/portal/portal_vortex_8frame.png");
+                }
             }
         } catch (IOException e) {
-            System.out.println("Warning: could not load portal sprite sheet /res/portal/portal_vortex_8frame.png");
+            if (DEBUG_RESOURCE_LOGS) {
+                System.out.println("Warning: could not load portal sprite sheet /res/portal/portal_vortex_8frame.png");
+            }
             portalSpriteSheet = null;
         }
 
@@ -561,7 +565,9 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void slicePortalSpriteSheet() {
         if (portalSpriteSheet.getWidth() % PORTAL_FRAME_COUNT != 0) {
-            System.out.println("Warning: portal sprite sheet width is not divisible by 8");
+            if (DEBUG_RESOURCE_LOGS) {
+                System.out.println("Warning: portal sprite sheet width is not divisible by 8");
+            }
         }
 
         int frameWidth = portalSpriteSheet.getWidth() / PORTAL_FRAME_COUNT;
@@ -586,18 +592,24 @@ public class GamePanel extends JPanel implements Runnable {
             String path = "/res/portal/portal_vortex_frame_" + (i + 1) + ".png";
             try (InputStream is = getClass().getResourceAsStream(path)) {
                 if (is == null) {
-                    System.out.println("Warning: could not load portal frame " + path);
+                    if (DEBUG_RESOURCE_LOGS) {
+                        System.out.println("Warning: could not load portal frame " + path);
+                    }
                     portalFrames = null;
                     return;
                 }
                 frames[i] = ImageIO.read(is);
                 if (frames[i] == null) {
-                    System.out.println("Warning: could not read portal frame " + path);
+                    if (DEBUG_RESOURCE_LOGS) {
+                        System.out.println("Warning: could not read portal frame " + path);
+                    }
                     portalFrames = null;
                     return;
                 }
             } catch (IOException e) {
-                System.out.println("Warning: could not load portal frame " + path);
+                if (DEBUG_RESOURCE_LOGS) {
+                    System.out.println("Warning: could not load portal frame " + path);
+                }
                 portalFrames = null;
                 return;
             }
@@ -709,7 +721,6 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void update() {
-        // Only update gameplay while playing.
         if (gameState == playState) {
             updateDamageFeedbackEffects();
             updateBossPhaseTwoPresentation();
@@ -812,9 +823,6 @@ public class GamePanel extends JPanel implements Runnable {
                         continue;
                     }
 
-                    if (defeatedMonster.type == 3) {
-                    }
-
                     handleMonsterDefeated(defeatedMonster);
                     monsterList.remove(i);
                     i--;
@@ -876,14 +884,13 @@ public class GamePanel extends JPanel implements Runnable {
         super.paintComponent(g);
         ensureVirtualScreen();
 
-        virtualGraphics = virtualScreen.createGraphics();
+        Graphics2D virtualGraphics = virtualScreen.createGraphics();
         try {
             virtualGraphics.setColor(Color.BLACK);
             virtualGraphics.fillRect(0, 0, screenWidth, screenHeight);
             drawGameToVirtualScreen(virtualGraphics);
         } finally {
             virtualGraphics.dispose();
-            virtualGraphics = null;
         }
 
         Graphics2D g2 = (Graphics2D) g;
@@ -920,32 +927,29 @@ public class GamePanel extends JPanel implements Runnable {
                     drawNormalMapObstacleDebug(worldG);
                 }
 
-               // Portal appears after the room is cleared.
-            if (shouldShowClearPortal()) {
-                int doorWorldX = 20 * tileSize;
-                int doorWorldY = 20 * tileSize;
+                if (shouldShowClearPortal()) {
+                    int doorWorldX = 20 * tileSize;
+                    int doorWorldY = 20 * tileSize;
 
-                int doorScreenX = doorWorldX - player.x + player.screenX;
-                int doorScreenY = doorWorldY - player.y + player.screenY;
+                    int doorScreenX = doorWorldX - player.x + player.screenX;
+                    int doorScreenY = doorWorldY - player.y + player.screenY;
 
-                BufferedImage portalFrame = getCurrentPortalFrame();
-                if (portalFrame != null) {
-                    int portalDrawWidth = tileSize * 2;
-                    int portalDrawHeight = tileSize * 2;
-                    int portalDrawWorldX = 20 * tileSize;
-                    int portalDrawWorldY = 20 * tileSize - tileSize;
-                    int portalScreenX = portalDrawWorldX - player.x + player.screenX;
-                    int portalScreenY = portalDrawWorldY - player.y + player.screenY;
-                    worldG.drawImage(portalFrame, portalScreenX, portalScreenY, portalDrawWidth, portalDrawHeight, null);
-                } else {
-                    worldG.setColor(Color.CYAN);
-                    worldG.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
-
-                    worldG.setColor(Color.WHITE);
-                    String msg = isBossLevel(currentLevel) ? "VICTORY" : "PORTAL";
-                    worldG.drawString(msg, doorScreenX, doorScreenY - 10);
+                    BufferedImage portalFrame = getCurrentPortalFrame();
+                    if (portalFrame != null) {
+                        int portalDrawWidth = tileSize * 2;
+                        int portalDrawHeight = tileSize * 2;
+                        int portalDrawWorldX = 20 * tileSize;
+                        int portalDrawWorldY = 20 * tileSize - tileSize;
+                        int portalScreenX = portalDrawWorldX - player.x + player.screenX;
+                        int portalScreenY = portalDrawWorldY - player.y + player.screenY;
+                        worldG.drawImage(portalFrame, portalScreenX, portalScreenY, portalDrawWidth, portalDrawHeight, null);
+                    } else {
+                        worldG.setColor(new Color(20, 190, 235, 165));
+                        worldG.fillOval(doorScreenX, doorScreenY - tileSize / 2, tileSize * 2, tileSize * 2);
+                        worldG.setColor(new Color(225, 255, 255, 190));
+                        worldG.drawOval(doorScreenX, doorScreenY - tileSize / 2, tileSize * 2, tileSize * 2);
+                    }
                 }
-            }
 
                 for (int i = 0; i < itemList.size(); i++) {
                     itemList.get(i).draw(worldG);
@@ -967,7 +971,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                 for (int i = 0; i < floatingTextList.size(); i++) {
                     if (floatingTextList.get(i) != null) {
-                    floatingTextList.get(i).draw(worldG);
+                        floatingTextList.get(i).draw(worldG);
                     }
                 }
             } finally {
@@ -984,14 +988,14 @@ public class GamePanel extends JPanel implements Runnable {
                 ui.drawGameOverScreen(g2);
             }
             else if (gameState == gameWinState) {
-            ui.drawGameWinScreen(g2);
+                ui.drawGameWinScreen(g2);
             }
             else if (gameState == upgradeState) {
                 ui.drawUpgradeScreen(g2);
             }
             for (int i = 0; i < particleList.size(); i++) {
                 particleList.get(i).draw(g2);
-                }   
+            }
 
             drawBossPhaseTwoOverlay(g2);
             drawDamageFlash(g2);
@@ -1235,9 +1239,9 @@ public class GamePanel extends JPanel implements Runnable {
         loadFallbackNormalMapObstacles(level);
     }
 
-    public void reloadCurrentNormalMapProps() {
+    public void reloadCurrentMapData() {
         if (isNormalMapLevel() == false) {
-            System.out.println("No normal map props to reload for level " + currentLevel);
+            System.out.println("No map data to reload for level " + currentLevel);
             return;
         }
 
@@ -1246,7 +1250,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         String definitionInfo = (loadedPropDefinitionPath == null) ? "fallback obstacles" : loadedPropDefinitionPath;
         String walkableInfo = (loadedWalkableAreaPath == null) ? "no walkable whitelist" : loadedWalkableAreaPath;
-        System.out.println("Reloaded map props for level " + currentLevel + " using "
+        System.out.println("Reloaded map data for level " + currentLevel + " using "
                 + definitionInfo + " and " + walkableInfo);
     }
 
@@ -1327,10 +1331,7 @@ public class GamePanel extends JPanel implements Runnable {
             return new String[] {"/res/maps/walkable/desert_1_walkable_areas.txt"};
         }
         if (isBossLevel(level)) {
-            return new String[] {
-                    "/res/maps/walkable/boss_1_walkable_areas.txt",
-                    "/res/maps/walkable/boss_1_walkable_areas_v2.txt"
-            };
+            return new String[] {"/res/maps/walkable/boss_1_walkable_areas.txt"};
         }
         return null;
     }
@@ -2572,7 +2573,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    // Called when starting a new level or entering the portal.
+    // Map transitions are guarded so progression cannot run while a level is half-loaded.
     public void transitionToNewMap(int level) {
         mapTransitionInProgress = true;
         try {
@@ -2636,8 +2637,6 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void handleMonsterDefeated(Monster defeatedMonster) {
-        if (defeatedMonster.type == 3) {
-        }
         statsTracker.recordEnemyKilled();
         addScore(getMonsterScore(defeatedMonster));
         if (defeatedMonster.type == 3) return;

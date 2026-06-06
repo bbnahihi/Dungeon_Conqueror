@@ -572,13 +572,6 @@ public class Monster extends Entity {
         this.speed = 5;        // Slightly faster than the player.
         this.maxHp += 5;       // More HP.
         this.hp = this.maxHp;  // Heal after transforming.
-        
-        try {
-            
-        } catch (Exception e) {
-            System.out.println("Error: Elite image file not found!");
-            e.printStackTrace();
-        }
     }
     public void changeState(BossState newState) {
     if (currentState != null) currentState.exit(this);
