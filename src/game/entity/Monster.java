@@ -270,6 +270,7 @@ public class Monster extends Entity {
                 bossPhaseAnimationStarted = true;
                 bossPhaseAnimationCounter = BOSS_PHASE_ANIMATION_TICKS;
                 switchBossAnimation(BOSS_ANIM_PHASE);
+                gp.triggerBossPhaseTwoFeedback(this);
             }
 
             if (shootCooldown == 0) {

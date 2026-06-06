@@ -384,8 +384,11 @@ public class UI {
             int barH = 22;
             int barX = gp.screenWidth / 2 - barW / 2;
             int barY = gp.screenHeight - 62;
-            drawShadowedText(g2, "DUNGEON OVERLORD", gp.screenWidth / 2, barY - 12,
-                    new Font("SansSerif", Font.BOLD, 20), new Color(255, 130, 90), Color.BLACK);
+            String bossLabel = (m.maxHp > 0 && m.hp <= m.maxHp / 2)
+                    ? "SERAPHINE, QUEEN OF THE ABYSS"
+                    : "SERAPHINE, THE ABYSSAL ROSE";
+            drawShadowedText(g2, bossLabel, gp.screenWidth / 2, barY - 12,
+                    new Font("SansSerif", Font.BOLD, 17), new Color(220, 40, 40), Color.BLACK);
             float ratio = m.maxHp <= 0 ? 0f : (float) m.hp / m.maxHp;
             drawGradientBar(g2, barX, barY, barW, barH, ratio,
                     new Color(40, 18, 22), new Color(200, 40, 50), "", 0, 0);

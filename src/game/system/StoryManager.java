@@ -52,38 +52,41 @@ public class StoryManager {
     }
 
     public String getTitle() {
-        if (currentMoment == StoryMoment.INTRO) return "The Rift Opens";
-        if (currentMoment == StoryMoment.PRE_BOSS) return "The Deepest Gate";
-        if (currentMoment == StoryMoment.ENDING) return "After the Abyss";
+        if (currentMoment == StoryMoment.INTRO) return "Into the Rift";
+        if (currentMoment == StoryMoment.PRE_BOSS) return "The Abyssal Rose";
+        if (currentMoment == StoryMoment.ENDING) return "When the Rose Falls";
         return "";
     }
 
     public String[] getLines() {
         if (currentMoment == StoryMoment.INTRO) {
             return new String[] {
-                    "The world was shattered when dimensional rifts opened across the land.",
-                    "Dark creatures poured out, destroying cities, villages, and most of human civilization.",
-                    "Blessed by the gods, a lone hero enters the greatest rift to hold back the darkness and buy mankind enough time to rebuild."
+                    "Years ago, the Rift swallowed kingdoms, villages, and the girl the hero once loved.",
+                    "Her name was Seraphine.",
+                    "The gods sent him into the abyss to save what remained of humanity.",
+                    "But his heart carried another wish: to find her, and bring her home.",
+                    "Beyond the gate, however, love and duty may no longer lead to the same ending."
             };
         }
 
         if (currentMoment == StoryMoment.PRE_BOSS) {
             return new String[] {
-                    "At the deepest gate of the rift, the hero finally meets the master of the abyss.",
-                    "But behind the dark power stands a familiar face - the childhood friend he lost many years ago.",
-                    "Her sorrow has become hatred, and the abyss has turned that hatred into power.",
+                    "At the heart of the Rift, the air turns heavy and still.",
+                    "Before the shattered throne stands Seraphine, the Abyssal Rose - once the one he loved, now the sovereign of the Void.",
+                    "Wrapped in grief, rage, and impossible power, she rules the darkness that nearly swallowed the world.",
                     "",
-                    "Hero: \"It does not have to end like this.\"",
-                    "Dark Conqueror: \"You left. The world left me. Now I will return that pain to all of it.\"",
-                    "Hero: \"Then I will stop you... even if it costs me everything.\""
+                    "Seraphine: \"If this world could only offer pain... then let it be consumed by the abyss.\"",
+                    "Hero: \"Seraphine... I came to save you.\"",
+                    "Seraphine: \"Then face what your absence made of me.\""
             };
         }
 
         if (currentMoment == StoryMoment.ENDING) {
             return new String[] {
-                    "The Dark Conqueror has fallen.",
-                    "The rift begins to close, and humanity gains the time it needs to rebuild.",
-                    "But deep within the ruins, the memory of the abyss still remains."
+                    "As Seraphine falls, her crown breaks into violet ash, drawn back into the Rift.",
+                    "The abyss gives no miracle, no final return - only the silence of someone already lost.",
+                    "The hero lowers his weapon as the gate collapses. The world is saved, but Seraphine is gone.",
+                    "Victory comes, but it does not feel like triumph."
             };
         }
 

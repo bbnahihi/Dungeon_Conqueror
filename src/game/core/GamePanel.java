@@ -93,6 +93,21 @@ public class GamePanel extends JPanel implements Runnable {
     private boolean mapTransitionInProgress = false;
     private boolean normalStageEnemiesSpawned = false;
     private BufferedImage bossArenaImage;
+    private BufferedImage virtualScreen;
+    private Graphics2D virtualGraphics;
+    private int screenShakeTimer = 0;
+    private int screenShakeDuration = 0;
+    private int screenShakeMagnitude = 0;
+    private int screenShakeOffsetX = 0;
+    private int screenShakeOffsetY = 0;
+    private int damageFlashTimer = 0;
+    private static final int DAMAGE_FLASH_DURATION = 18;
+    private static final int DAMAGE_EDGE_THICKNESS = 48;
+    private static final float DAMAGE_EDGE_MAX_ALPHA = 0.42f;
+    private int bossPhaseIntroTimer = 0;
+    private int bossPhaseFlashTimer = 0;
+    private static final int BOSS_PHASE_FLASH_DURATION = 42;
+    private Random screenShakeRandom = new Random();
     private BufferedImage portalSpriteSheet;
     private BufferedImage[] portalFrames;
     private int portalFrameIndex = 0;
@@ -285,6 +300,207 @@ public class GamePanel extends JPanel implements Runnable {
             this.scale = scale;
             this.collisionRect = collisionRect;
         }
+    }
+
+    private void ensureVirtualScreen() {
+        if (virtualScreen == null) {
+            virtualScreen = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_ARGB);
+        }
+    }
+
+    public double getRenderScale() {
+        double scaleX = getWidth() / (double) screenWidth;
+        double scaleY = getHeight() / (double) screenHeight;
+        return Math.min(scaleX, scaleY);
+    }
+
+    public int getRenderOffsetX() {
+        int drawW = (int)Math.round(screenWidth * getRenderScale());
+        return (getWidth() - drawW) / 2;
+    }
+
+    public int getRenderOffsetY() {
+        int drawH = (int)Math.round(screenHeight * getRenderScale());
+        return (getHeight() - drawH) / 2;
+    }
+
+    public int toVirtualX(int realMouseX) {
+        double scale = getRenderScale();
+        if (scale <= 0) return realMouseX;
+        return (int)Math.round((realMouseX - getRenderOffsetX()) / scale);
+    }
+
+    public int toVirtualY(int realMouseY) {
+        double scale = getRenderScale();
+        if (scale <= 0) return realMouseY;
+        return (int)Math.round((realMouseY - getRenderOffsetY()) / scale);
+    }
+
+    public boolean isInsideVirtualScreen(int realMouseX, int realMouseY) {
+        int virtualX = toVirtualX(realMouseX);
+        int virtualY = toVirtualY(realMouseY);
+        return virtualX >= 0 && virtualY >= 0 && virtualX < screenWidth && virtualY < screenHeight;
+    }
+
+    private void triggerPlayerDamageFeedback(int damage) {
+        int safeDamage = Math.max(1, damage);
+        int magnitude = safeDamage >= 2 ? 8 : 5;
+        int duration = safeDamage >= 2 ? 14 : 10;
+
+        startScreenShake(magnitude, duration);
+        damageFlashTimer = DAMAGE_FLASH_DURATION;
+    }
+
+    private void triggerBossDeathFeedback() {
+        startScreenShake(16, 95);
+    }
+
+    public void triggerBossPhaseTwoFeedback(Monster boss) {
+        if (boss == null) return;
+
+        bossPhaseIntroTimer = 45;
+        bossPhaseFlashTimer = BOSS_PHASE_FLASH_DURATION;
+
+        startScreenShake(13, 38);
+        generateBossPhaseTwoBurstParticles(boss);
+    }
+
+    private void startScreenShake(int magnitude, int duration) {
+        screenShakeMagnitude = Math.max(screenShakeMagnitude, magnitude);
+        screenShakeDuration = Math.max(screenShakeDuration, duration);
+        screenShakeTimer = Math.max(screenShakeTimer, duration);
+    }
+
+    private void updateDamageFeedbackEffects() {
+        if (screenShakeTimer > 0) {
+            double progress = screenShakeTimer / (double)Math.max(1, screenShakeDuration);
+            int currentMagnitude = Math.max(1, (int)Math.round(screenShakeMagnitude * progress));
+
+            screenShakeOffsetX = screenShakeRandom.nextInt(currentMagnitude * 2 + 1) - currentMagnitude;
+            screenShakeOffsetY = screenShakeRandom.nextInt(currentMagnitude * 2 + 1) - currentMagnitude;
+
+            screenShakeTimer--;
+
+            if (screenShakeTimer <= 0) {
+                screenShakeOffsetX = 0;
+                screenShakeOffsetY = 0;
+                screenShakeMagnitude = 0;
+                screenShakeDuration = 0;
+            }
+        } else {
+            screenShakeOffsetX = 0;
+            screenShakeOffsetY = 0;
+        }
+
+        if (damageFlashTimer > 0) {
+            damageFlashTimer--;
+        }
+    }
+
+    private void updateBossPhaseTwoPresentation() {
+        if (bossPhaseIntroTimer > 0) bossPhaseIntroTimer--;
+        if (bossPhaseFlashTimer > 0) bossPhaseFlashTimer--;
+    }
+
+    private void drawDamageFlash(Graphics2D g2) {
+        if (damageFlashTimer <= 0) return;
+
+        float alpha = damageFlashTimer / (float)DAMAGE_FLASH_DURATION;
+        alpha = Math.min(0.15f, alpha * 0.15f);
+
+        Composite oldComposite = g2.getComposite();
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g2.setColor(Color.RED);
+        g2.fillRect(0, 0, screenWidth, screenHeight);
+        g2.setComposite(oldComposite);
+    }
+
+    private void drawDamageEdgeVignette(Graphics2D g2) {
+        if (damageFlashTimer <= 0) return;
+
+        float progress = damageFlashTimer / (float)DAMAGE_FLASH_DURATION;
+        float alpha = Math.min(DAMAGE_EDGE_MAX_ALPHA, progress * DAMAGE_EDGE_MAX_ALPHA);
+
+        Composite oldComposite = g2.getComposite();
+
+        int layers = 4;
+        for (int i = 0; i < layers; i++) {
+            float layerAlpha = alpha * (1.0f - i * 0.18f);
+            if (layerAlpha <= 0f) continue;
+
+            int thickness = Math.max(4, DAMAGE_EDGE_THICKNESS - i * 10);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha));
+            g2.setColor(Color.RED);
+
+            g2.fillRect(0, 0, screenWidth, thickness);
+            g2.fillRect(0, screenHeight - thickness, screenWidth, thickness);
+            g2.fillRect(0, 0, thickness, screenHeight);
+            g2.fillRect(screenWidth - thickness, 0, thickness, screenHeight);
+        }
+
+        g2.setComposite(oldComposite);
+    }
+
+    private void drawBossPhaseTwoAura(Graphics2D g2) {
+        if (isBossLevel(currentLevel) == false) return;
+
+        Composite oldComposite = g2.getComposite();
+        for (int i = 0; i < monsterList.size(); i++) {
+            Monster boss = monsterList.get(i);
+            if (boss.type != 3 || boss.hp <= 0 || boss.maxHp <= 0 || boss.isBossDying()) continue;
+            if (boss.hp > boss.maxHp / 2) continue;
+
+            int bossSize = tileSize * 2;
+            int centerX = boss.x + bossSize / 2 - player.x + player.screenX;
+            int centerY = boss.y + bossSize / 2 - player.y + player.screenY;
+            float introAlpha = bossPhaseIntroTimer > 0 ? bossPhaseIntroTimer / 45f : 0f;
+            int introRadiusBonus = bossPhaseIntroTimer > 0 ? (45 - bossPhaseIntroTimer) * 2 : 0;
+            int outerRadius = tileSize * 3 + introRadiusBonus;
+            int innerRadius = tileSize * 2;
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.13f + introAlpha * 0.14f));
+            g2.setColor(new Color(116, 28, 170));
+            g2.fillOval(centerX - outerRadius / 2, centerY - outerRadius / 2, outerRadius, outerRadius);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.20f + introAlpha * 0.12f));
+            g2.setColor(new Color(190, 35, 120));
+            g2.fillOval(centerX - innerRadius / 2, centerY - innerRadius / 2, innerRadius, innerRadius);
+        }
+        g2.setComposite(oldComposite);
+    }
+
+    private void drawBossPhaseTwoOverlay(Graphics2D g2) {
+        if (isBossLevel(currentLevel) == false) return;
+        if (bossPhaseFlashTimer <= 0) return;
+
+        Composite oldComposite = g2.getComposite();
+
+        float progress = bossPhaseFlashTimer / (float)BOSS_PHASE_FLASH_DURATION;
+        float alpha = Math.min(0.28f, progress * 0.28f);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g2.setColor(new Color(55, 8, 80));
+        g2.fillRect(0, 0, screenWidth, screenHeight);
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.45f));
+        g2.setColor(new Color(160, 20, 95));
+        g2.fillRect(0, 0, screenWidth, screenHeight);
+
+        g2.setComposite(oldComposite);
+    }
+
+    private void resetDamageFeedbackEffects() {
+        screenShakeTimer = 0;
+        screenShakeDuration = 0;
+        screenShakeMagnitude = 0;
+        screenShakeOffsetX = 0;
+        screenShakeOffsetY = 0;
+        damageFlashTimer = 0;
+    }
+
+    private void resetBossPhaseTwoPresentation() {
+        bossPhaseIntroTimer = 0;
+        bossPhaseFlashTimer = 0;
     }
 
     public void startGameThread() {
@@ -495,6 +711,8 @@ public class GamePanel extends JPanel implements Runnable {
     public void update() {
         // Only update gameplay while playing.
         if (gameState == playState) {
+            updateDamageFeedbackEffects();
+            updateBossPhaseTwoPresentation();
             player.update(); 
 
             // Update dropped items.
@@ -514,10 +732,12 @@ public class GamePanel extends JPanel implements Runnable {
                 m.update();
                 if (m.shouldSpawnBossDeathParticles()) {
                     generateBossDeathPulseParticles(m);
+                    startScreenShake(7, 12);
                 }
 
                 if (m.isBossDying() == false && m.getBounds().intersects(player.getBounds()) && player.invincible == false) {
                     player.hp--; 
+                    triggerPlayerDamageFeedback(1);
                     statsTracker.recordDamageTaken(1);
                     player.invincible = true; 
                     
@@ -552,6 +772,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                     if (b.getBounds().intersects(player.getBounds()) && player.invincible == false) {
                         player.hp -= b.damage;
+                        triggerPlayerDamageFeedback(b.damage);
                         statsTracker.recordDamageTaken(b.damage);
                         player.invincible = true; 
                         
@@ -576,6 +797,7 @@ public class GamePanel extends JPanel implements Runnable {
                     if (defeatedMonster.type == 3) {
                         if (defeatedMonster.isBossDying() == false) {
                             defeatedMonster.startBossDeathSequence();
+                            triggerBossDeathFeedback();
                             generateBossDeathParticles(defeatedMonster);
                             continue;
                         }
@@ -652,81 +874,106 @@ public class GamePanel extends JPanel implements Runnable {
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
+        ensureVirtualScreen();
+
+        virtualGraphics = virtualScreen.createGraphics();
+        try {
+            virtualGraphics.setColor(Color.BLACK);
+            virtualGraphics.fillRect(0, 0, screenWidth, screenHeight);
+            drawGameToVirtualScreen(virtualGraphics);
+        } finally {
+            virtualGraphics.dispose();
+            virtualGraphics = null;
+        }
+
         Graphics2D g2 = (Graphics2D) g;
+        drawScaledVirtualScreen(g2);
+    }
+
+    private void drawGameToVirtualScreen(Graphics2D g2) {
 
         if (gameState == titleState) {
             ui.drawTitleScreen(g2);
         } else if (gameState == storyState) {
             ui.drawStoryScreen(g2);
         } else {
-            if (isBossLevel(currentLevel) && bossArenaImage != null) {
-                drawBossArenaBackground(g2);
-            } else if (isNormalMapLevel()) {
-                drawNormalMapBackground(g2);
-            } else {
-                tileM.draw(g2);
-            }
-            if (isBossLevel(currentLevel)) {
-                if (bossPropLayerActive) {
-                    drawNormalMapProps(g2);
+            Graphics2D worldG = (Graphics2D)g2.create();
+            worldG.translate(screenShakeOffsetX, screenShakeOffsetY);
+            try {
+                if (isBossLevel(currentLevel) && bossArenaImage != null) {
+                    drawBossArenaBackground(worldG);
+                } else if (isNormalMapLevel()) {
+                    drawNormalMapBackground(worldG);
                 } else {
-                    drawBossStageDecorations(g2);
-                    drawBossArenaCovers(g2);
+                    tileM.draw(worldG);
                 }
-                drawNormalMapObstacleDebug(g2);
-            } else {
-                drawNormalMapProps(g2);
-                drawNormalMapObstacleDebug(g2);
-            }
-            
-           // Portal appears after the room is cleared.
-        if (shouldShowClearPortal()) {
-            int doorWorldX = 20 * tileSize;
-            int doorWorldY = 20 * tileSize;
+                if (isBossLevel(currentLevel)) {
+                    if (bossPropLayerActive) {
+                        drawNormalMapProps(worldG);
+                    } else {
+                        drawBossStageDecorations(worldG);
+                        drawBossArenaCovers(worldG);
+                    }
+                    drawNormalMapObstacleDebug(worldG);
+                } else {
+                    drawNormalMapProps(worldG);
+                    drawNormalMapObstacleDebug(worldG);
+                }
 
-            int doorScreenX = doorWorldX - player.x + player.screenX;
-            int doorScreenY = doorWorldY - player.y + player.screenY;
+               // Portal appears after the room is cleared.
+            if (shouldShowClearPortal()) {
+                int doorWorldX = 20 * tileSize;
+                int doorWorldY = 20 * tileSize;
 
-            BufferedImage portalFrame = getCurrentPortalFrame();
-            if (portalFrame != null) {
-                int portalDrawWidth = tileSize * 2;
-                int portalDrawHeight = tileSize * 2;
-                int portalDrawWorldX = 20 * tileSize;
-                int portalDrawWorldY = 20 * tileSize - tileSize;
-                int portalScreenX = portalDrawWorldX - player.x + player.screenX;
-                int portalScreenY = portalDrawWorldY - player.y + player.screenY;
-                g2.drawImage(portalFrame, portalScreenX, portalScreenY, portalDrawWidth, portalDrawHeight, null);
-            } else {
-                g2.setColor(Color.CYAN);
-                g2.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
+                int doorScreenX = doorWorldX - player.x + player.screenX;
+                int doorScreenY = doorWorldY - player.y + player.screenY;
 
-                g2.setColor(Color.WHITE);
-                String msg = isBossLevel(currentLevel) ? "VICTORY" : "PORTAL";
-                g2.drawString(msg, doorScreenX, doorScreenY - 10);
-            }
-        }
+                BufferedImage portalFrame = getCurrentPortalFrame();
+                if (portalFrame != null) {
+                    int portalDrawWidth = tileSize * 2;
+                    int portalDrawHeight = tileSize * 2;
+                    int portalDrawWorldX = 20 * tileSize;
+                    int portalDrawWorldY = 20 * tileSize - tileSize;
+                    int portalScreenX = portalDrawWorldX - player.x + player.screenX;
+                    int portalScreenY = portalDrawWorldY - player.y + player.screenY;
+                    worldG.drawImage(portalFrame, portalScreenX, portalScreenY, portalDrawWidth, portalDrawHeight, null);
+                } else {
+                    worldG.setColor(Color.CYAN);
+                    worldG.fillRect(doorScreenX, doorScreenY, tileSize * 2, tileSize);
 
-            for (int i = 0; i < itemList.size(); i++) {
-                itemList.get(i).draw(g2);
-            }
-
-            player.draw(g2);
-
-            for (int i = 0; i < monsterList.size(); i++) {
-                monsterList.get(i).draw(g2);
-            }
-
-            for (int i = 0; i < bulletList.size(); i++) {
-                bulletList.get(i).draw(g2);
-            }
-
-            drawBossCoverDebugHitboxes(g2);
-            
-            for (int i = 0; i < floatingTextList.size(); i++) {
-                if (floatingTextList.get(i) != null) {
-                floatingTextList.get(i).draw(g2);
+                    worldG.setColor(Color.WHITE);
+                    String msg = isBossLevel(currentLevel) ? "VICTORY" : "PORTAL";
+                    worldG.drawString(msg, doorScreenX, doorScreenY - 10);
                 }
             }
+
+                for (int i = 0; i < itemList.size(); i++) {
+                    itemList.get(i).draw(worldG);
+                }
+
+                player.draw(worldG);
+
+                drawBossPhaseTwoAura(worldG);
+
+                for (int i = 0; i < monsterList.size(); i++) {
+                    monsterList.get(i).draw(worldG);
+                }
+
+                for (int i = 0; i < bulletList.size(); i++) {
+                    bulletList.get(i).draw(worldG);
+                }
+
+                drawBossCoverDebugHitboxes(worldG);
+
+                for (int i = 0; i < floatingTextList.size(); i++) {
+                    if (floatingTextList.get(i) != null) {
+                    floatingTextList.get(i).draw(worldG);
+                    }
+                }
+            } finally {
+                worldG.dispose();
+            }
+
             ui.draw(g2);
 
             // Menu overlays are drawn above the world.
@@ -745,9 +992,33 @@ public class GamePanel extends JPanel implements Runnable {
             for (int i = 0; i < particleList.size(); i++) {
                 particleList.get(i).draw(g2);
                 }   
+
+            drawBossPhaseTwoOverlay(g2);
+            drawDamageFlash(g2);
+            drawDamageEdgeVignette(g2);
         }
     
-        g2.dispose(); 
+    }
+
+    private void drawScaledVirtualScreen(Graphics2D g2) {
+        int panelW = getWidth();
+        int panelH = getHeight();
+        double scale = getRenderScale();
+
+        int drawW = (int)Math.round(screenWidth * scale);
+        int drawH = (int)Math.round(screenHeight * scale);
+        int drawX = (panelW - drawW) / 2;
+        int drawY = (panelH - drawH) / 2;
+
+        g2.setColor(Color.BLACK);
+        g2.fillRect(0, 0, panelW, panelH);
+
+        Object oldInterpolation = g2.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2.drawImage(virtualScreen, drawX, drawY, drawW, drawH, null);
+        if (oldInterpolation != null) {
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterpolation);
+        }
     }
 
     private void drawBossArenaBackground(Graphics2D g2) {
@@ -1886,15 +2157,17 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public void selectUpgrade(int choiceIndex) {
-        int nextLevel = pendingLevelAfterUpgrade;
-        pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
-        if (nextLevel == NO_PENDING_LEVEL) {
+        if (pendingLevelAfterUpgrade == NO_PENDING_LEVEL) {
             return;
         }
 
-        if (upgradeManager.applySelectedUpgrade(choiceIndex)) {
-            statsTracker.recordUpgradeChosen();
+        if (upgradeManager.applySelectedUpgrade(choiceIndex) == false) {
+            return;
         }
+
+        statsTracker.recordUpgradeChosen();
+        int nextLevel = pendingLevelAfterUpgrade;
+        pendingLevelAfterUpgrade = NO_PENDING_LEVEL;
 
         if (nextLevel == BOSS_LEVEL) {
             transitionToLevelWithStory(nextLevel);
@@ -2060,6 +2333,8 @@ public class GamePanel extends JPanel implements Runnable {
         bossFightStarted = false;
         mapTransitionInProgress = false;
         normalStageEnemiesSpawned = false;
+        resetDamageFeedbackEffects();
+        resetBossPhaseTwoPresentation();
         player.setDefaultValues();
         particleList.clear();
         player.setupClass(pendingStoryClassType);
@@ -2093,7 +2368,6 @@ public class GamePanel extends JPanel implements Runnable {
         statsTracker.endRun();
         storyManager.begin(StoryMoment.ENDING, StoryAction.SHOW_WIN);
         gameState = storyState;
-        stopMusic();
         playSE(7);
     }
 
@@ -2226,6 +2500,32 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    private void generateBossPhaseTwoBurstParticles(Monster boss) {
+        int centerX = boss.x + tileSize;
+        int centerY = boss.y + tileSize;
+        Color[] colors = {
+                new Color(115, 25, 190),
+                new Color(210, 45, 210),
+                new Color(165, 20, 95),
+                new Color(55, 15, 90),
+                new Color(245, 120, 220)
+        };
+
+        for (int k = 0; k < 78; k++) {
+            double angle = (Math.PI * 2.0 * k / 78.0) + (Math.random() - 0.5) * 0.42;
+            double speed = 1.4 + Math.random() * 6.2;
+            if (k % 5 == 0) speed *= 0.45;
+
+            double xVel = Math.cos(angle) * speed;
+            double yVel = Math.sin(angle) * speed;
+            int size = 3 + (int)(Math.random() * 7);
+            int life = 38 + (int)(Math.random() * 42);
+            Color color = colors[(int)(Math.random() * colors.length)];
+
+            particleList.add(new Particle(this, centerX, centerY, color, size, xVel, yVel, life));
+        }
+    }
+
     public void generateBossDeathParticles(Monster boss) {
         int centerX = boss.x + tileSize;
         int centerY = boss.y + tileSize;
@@ -2281,6 +2581,8 @@ public class GamePanel extends JPanel implements Runnable {
             levelClearHandled = false;
             bossFightStarted = false;
             normalStageEnemiesSpawned = false;
+            resetDamageFeedbackEffects();
+            resetBossPhaseTwoPresentation();
             if (level == FOREST_LEVEL) {
                 statsTracker.startRun(level);
             }
@@ -2415,6 +2717,8 @@ public class GamePanel extends JPanel implements Runnable {
         bossFightStarted = false;
         mapTransitionInProgress = false;
         normalStageEnemiesSpawned = false;
+        resetDamageFeedbackEffects();
+        resetBossPhaseTwoPresentation();
         score = 0;
         statsTracker.reset();
         storyManager.resetRunFlags();

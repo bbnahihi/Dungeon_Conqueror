@@ -16,11 +16,25 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
         this.gp = gp;
     }
 
+    private void updateVirtualMousePosition(MouseEvent e) {
+        if (gp == null) {
+            mouseX = e.getX();
+            mouseY = e.getY();
+            return;
+        }
+
+        mouseX = gp.toVirtualX(e.getX());
+        mouseY = gp.toVirtualY(e.getY());
+    }
+
     @Override
     public void mousePressed(MouseEvent e) {
         if (e.getButton() == MouseEvent.BUTTON1) {
-            mouseX = e.getX();
-            mouseY = e.getY();
+            updateVirtualMousePosition(e);
+            if (gp != null && gp.isInsideVirtualScreen(e.getX(), e.getY()) == false) {
+                pressed = false;
+                return;
+            }
             pressed = true;
 
             if (gp != null) {
@@ -32,11 +46,10 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
     @Override
     public void mouseReleased(MouseEvent e) {
         if (e.getButton() == MouseEvent.BUTTON1) {
-            mouseX = e.getX();
-            mouseY = e.getY();
+            updateVirtualMousePosition(e);
             pressed = false;
 
-            if (gp != null && gp.isMenuLikeState()) {
+            if (gp != null && gp.isMenuLikeState() && gp.isInsideVirtualScreen(e.getX(), e.getY())) {
                 gp.handleUIClick(mouseX, mouseY);
             }
         }
@@ -56,13 +69,11 @@ public class MouseHandler implements MouseListener, MouseMotionListener {
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        mouseX = e.getX();
-        mouseY = e.getY();
+        updateVirtualMousePosition(e);
     }
 
     @Override
     public void mouseMoved(MouseEvent e) {
-        mouseX = e.getX();
-        mouseY = e.getY();
+        updateVirtualMousePosition(e);
     }
 }

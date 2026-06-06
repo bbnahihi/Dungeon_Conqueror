@@ -45,22 +45,23 @@ public class UpgradeManager {
             }
         });
 
-        register(new Upgrade(5, "Quick Trigger", "Faster Shooting", Color.YELLOW) {
+        register(new Upgrade(5, "Quick Trigger", "-4 Attack Cooldown", Color.YELLOW) {
+            public void apply(GamePanel gp) {
+                gp.player.attackCooldown -= 4;
+                if (gp.player.attackCooldown < 16) gp.player.attackCooldown = 16;
+            }
+        });
+
+        register(new Upgrade(6, "Blood Blade", "+1 Melee Damage", Color.RED) {
+            public void apply(GamePanel gp) {
+                gp.player.meleeDamage += 1;
+            }
+        });
+
+        register(new Upgrade(7, "Swift Wrist", "-3 Attack Cooldown", Color.ORANGE) {
             public void apply(GamePanel gp) {
                 gp.player.attackCooldown -= 3;
-            }
-        });
-
-        register(new Upgrade(6, "Blood Blade", "+2 Melee Damage", Color.RED) {
-            public void apply(GamePanel gp) {
-                gp.player.meleeDamage += 2;
-            }
-        });
-
-        register(new Upgrade(7, "Swift Wrist", "Faster Slashes", Color.ORANGE) {
-            public void apply(GamePanel gp) {
-                gp.player.attackCooldown -= 5;
-                if (gp.player.attackCooldown < 18) gp.player.attackCooldown = 18;
+                if (gp.player.attackCooldown < 22) gp.player.attackCooldown = 22;
             }
         });
 

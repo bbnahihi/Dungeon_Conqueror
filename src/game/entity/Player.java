@@ -268,14 +268,14 @@ public class Player extends Entity {
         if (type == 0) {
             maxHp = 8;
             speed = 4;
-            gunDamage = 1;
-            attackCooldown = 25; 
+            gunDamage = 2;
+            attackCooldown = 24;
         } 
         else if (type == 1) {
-            maxHp = 11;
-            speed = 5;
+            maxHp = 10;
+            speed = 4;
             meleeDamage = 3;
-            attackCooldown = 25;
+            attackCooldown = 30;
         }
         
         hp = maxHp; 
